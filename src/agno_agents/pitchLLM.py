@@ -35,7 +35,7 @@ class FinancialsSig(dspy.Signature):
     profit: float = dspy.OutputField(desc="Annual profit in USD (can be negative).")
 
 class PitchSig(dspy.Signature):
-    """Draft an investor pitch and initial offer."""
+    """Generate a persuasive Shark Tank pitch and investment offer."""
     financial_summary: str = dspy.InputField()
     product_json: str = dspy.InputField(desc="Full JSON with product description and facts.")
     response: PitchResponse = dspy.OutputField(
