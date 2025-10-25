@@ -1,0 +1,17 @@
+/*
+"""Sampling 10 random keys from 'data/all_processed_facts.json' with seed 42 using sample_keys.py
+------------------------------------------------------------
+ 1. "facts_shark_tank_transcript_33_The Ice Cream Canteen.txt"
+ 2. "facts_shark_tank_transcript_12_Wendy's Gnome Shop.txt"
+ 3. "facts_shark_tank_transcript_10_Deux.txt"
+ 4. "facts_shark_tank_transcript_37_Supermix Studio.txt"
+ 5. "facts_shark_tank_transcript_19_Do Amore.txt"
+ 6. "facts_shark_tank_transcript_18_Behave Bras.txt"
+ 7. "facts_shark_tank_transcript_17_Calm Strips.txt"
+ 8. "facts_shark_tank_transcript_13_MAXPRO SmartConnect.txt"
+ 9. "facts_shark_tank_transcript_12_Santa's Enchanted Mailbox.txt"
+10. "facts_shark_tank_transcript_35_Play Maysie.txt"
+------------------------------------------------------------
+Total keys sampled: 10
+"""
+*/

@@ -5,7 +5,7 @@
 */test_data/*
 
 *.bin
-*.json
+# *.json
 *.DS_store
 *.sqlite3
 src/test.py

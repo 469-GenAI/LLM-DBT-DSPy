@@ -1,0 +1,462 @@
+{
+    "facts_shark_tank_transcript_33_The Ice Cream Canteen.txt": {
+        "facts": {
+            "sales_2021": "$98,000",
+            "sales_2022": "$185,000 to date",
+            "expected_revenue_2022": "over $400,000",
+            "profit_margin": "over 50%",
+            "product_price": "$44.99",
+            "cost_to_make": "$7.50",
+            "patent_status": "design patent pending, three registered trademarks",
+            "competitors": "two similar but inferior products in the market",
+            "retail_partners": "80,000 ice cream, gelato, or frozen yogurt shops in the country"
+        },
+        "product_description": {
+            "name": "The Ice Cream Canteen",
+            "description": "The world's first double-walled, vacuum-insulated container designed to keep a pint of ice cream cold for hours without the need for a freezer. It allows users to enjoy ice cream anywhere, such as at the beach, picnics, barbecues, or birthday parties.",
+            "features": [
+                "No pre-chilling required (works better if pre-chilled)",
+                "Keeps ice cream frozen for up to four hours on its own",
+                "Can last up to eight hours when placed in a cooler with other food and drinks"
+            ]
+        },
+        "pitch_summary": {
+            "full_pitch": "hi sharks my name is Jordan and I'm here today asking for one hundred thousand dollars in exchange for five percent equity in my company the ice cream canteen [Music] sharks this is the pint of ice cream this the most delicious and most popular dessert in the country the problem is ice cream melts so quickly that you can't take this anywhere that's why I created the ice cream canteen the world's first double walled vacuum inside a container for the pint of ice cream so you can keep your ice cream cold and enjoy ice cream anywhere [Music] just drop in your favorite ice cream screw on the cap and the ice cream canteen will keep it frozen for hours no freezer no problem if it sounds too good to be true let's put it to a test sure [Music] let's go ahead and get our safety gear on okay [Music] so I would like you to do your best to melt this pint of ice cream are you ready I'm ready all right nuke it you're wonderful [Laughter] [Music] all right get in there Mark it's not it's not gonna melt itself off [Music] [Laughter] all right we're gonna burn the table step hang on back for a second [Music] all right already at 425 degrees wow all right thanks Mark let's check it out let's see how we're doing let's see if we got some ice cream oh my gosh open okay that is very hot but we still have an ice cold Frozen pint of ice cream wow easy as you can see the ice cream canteen stands up to the Heat and what that means is that now ice cream can be enjoyed at the beach at picnics barbecues or birthday parties or really anywhere so sharks don't let this deal Melt Away",
+            "pitch_delivery": "Jordan delivered the pitch with confidence and enthusiasm, emphasizing the problem of ice cream melting quickly and the innovative solution offered by The Ice Cream Canteen. He demonstrated the product's effectiveness by testing it live with a Shark, showing that the ice cream remained frozen even under extreme heat.",
+            "sentiment": "Positive and engaging. The Sharks were impressed by the product's functionality and the entrepreneur's passion.",
+            "story": "Jordan highlighted the universal love for ice cream and the inconvenience of not being able to take it on the go. He shared his journey of creating The Ice Cream Canteen to solve this problem and demonstrated its effectiveness through a live test.",
+            "key_aspects": [
+                "Live product demonstration",
+                "Strong focus on solving a common problem",
+                "Clear explanation of the product's unique features and benefits",
+                "Engaging and confident delivery"
+            ]
+        },
+        "initial_offer": {
+            "amount_requested": "$100,000",
+            "equity_offered": "5%",
+            "valuation_implied": "$2 million"
+        },
+        "final_offer": {
+            "investors": "Mark and Lori",
+            "amount_offered": "$100,000 upfront in cash + $100,000 line of credit",
+            "equity_taken": "25%",
+            "additional_terms": "Partnership with Mark and Lori to accelerate growth and retail distribution"
+        }
+    },
+    "facts_shark_tank_transcript_12_Wendy's Gnome Shop.txt": {
+        "facts": {
+            "sales": "$688,000 lifetime",
+            "profit": "$135,000 last year",
+            "customer_acquisition_cost": "$5",
+            "average_product_price": "$35",
+            "cost_to_make_product": "$3.50",
+            "units_sold": "23,000",
+            "business_startup_cost": "less than $1,000",
+            "employees": "3 ladies and her daughter",
+            "sales_channels": "15% website, 80% Etsy"
+        },
+        "product_description": {
+            "name": "Wendy's Gnome Shop",
+            "description": "Decorative gnomes for homes, suitable for various occasions such as birthdays, graduations, sports themes, and holidays. Offers a custom option called Design-A-Gnome where customers can design their gnome from hat to boot, choosing colors and themes.",
+            "unique_selling_point": "Top gnome seller on Etsy, high-quality handmade gnomes with an emotional connection to customers."
+        },
+        "pitch_summary": {
+            "full_pitch": "hey sharks first of all I need to say thank you all the years watching Shark Tank inspired me to be an entrepreneur I turned a hobby I love into a business I'm Wendy Hofmeister owner Wendy's gnome shop I'm here seeking 200 000 in exchange for 20 equity in my company we can all use a little more joy in our life so I created Wendy's gnome shop we make and sell decorative gnomes for your home and gnomes need homes they're for all types of occasions they make the perfect gift to put a smile on someone's face all year long we have pre-made birthday gnomes graduation gnomes Sports the Gnomes and of course gnomes for every holiday at Wendy's gnome shop we love hanging with the Nomis and of our customers are feeling extra creative we have a custom option called design a gnome our customer designs a gnome from hat to boot choosing their colors and theme and we make their Vision come to life now throughout history gnomes have been known for good luck and prosperity so sharks who wants to prosper and put a gnome in every home with Wendy's gnome shop",
+            "delivery": "Wendy Hoffmeister delivered her pitch with enthusiasm and a personal story, engaging the Sharks with her passion for gnomes and her journey from a broken heart to a successful business.",
+            "sentiment": "Positive and inspiring, with a focus on the joy and emotional connection gnomes bring to people.",
+            "story": "Wendy turned a personal hobby into a thriving business after a personal setback, starting with less than $1,000 and growing to nearly $700,000 in sales within 18 months.",
+            "key_aspects": "Highlighted the emotional appeal of gnomes, the profitability and scalability of the business, and the potential for growth with the right strategic partner."
+        },
+        "initial_offer": {
+            "amount": "$200,000",
+            "equity": "20%"
+        },
+        "final_offer": {
+            "shark": "Daymond",
+            "amount": "$200,000",
+            "equity": "30%",
+            "additional_terms": "No royalty"
+        }
+    },
+    "facts_shark_tank_transcript_10_Deux.txt": {
+        "facts": {
+            "revenue": {
+                "october_to_december": "$70,000",
+                "total_thus_far": "$630,000",
+                "projected_annual": "$1.2 million"
+            },
+            "production_cost": "$3.70 per jar",
+            "retail_price": "$15 per jar",
+            "whole_foods_deal": "Approved for 40 stores",
+            "funding_raised": "$1 million at a $6 million valuation"
+        },
+        "product_description": {
+            "name": "Deux",
+            "type": "Enhanced cookie dough",
+            "features": [
+                "Packed with vitamins and functional ingredients",
+                "Made with oats, almond butter, flaxseed, and coconut sugar",
+                "Gluten-free and vegan",
+                "Available in four flavors"
+            ],
+            "nutritional_highlights": {
+                "Chocolate Chip Cookie Dough": "Contains the same amount of zinc as three pounds of chickpeas",
+                "Brownie Batter": "Contains the same amount of vitamin C as five whole oranges"
+            },
+            "usage": "Can be eaten raw or baked into cookies"
+        },
+        "pitch_summary": {
+            "full_pitch": "Hi Sharks. My name is Sabina Lada. I'm from Dallas, Texas and I currently live in Los Angeles, California. I'm seeking $300,000 for 10% of my company D. Wow.Over the past year, I've started taking fistfuls of supplements. Everything from zinc and elderberry to boost my immune system to aloe vera and vitamin C for my skin and even ashwagandha to calm myself down. I may seem like your typical LA health nut, but I love junk food. I mean, I grew up on this stuff.Introducing dough, enhanced cookie dough packed with vitamins and functional ingredients. A lot of other raw cookie doughs are made with things like refined sugars and preservatives and animal byproducts. Our cookie dough is made with things like oats, almond butter, flax seed, and coconut sugar. We've added in good for you functional ingredients. For example, this jar of chocolate chip cookie dough has the same amount of zinc as 3 lbs of chickpeas.This jar of brownie batter has the same amount of vitamin C as five whole oranges. We've made everything delicious, gluten-free, and vegan.Especially for you, Mark. Now, Sharks, who's ready to invest and roll in some dough?",
+            "delivery": {
+                "sentiment": "Confident and passionate",
+                "story": "Shared personal journey from growing up eating junk food at her father's gas station to creating a health-conscious product that combines indulgence with nutrition",
+                "engagement": "Interactive, offering samples and engaging with the Sharks directly"
+            },
+            "key_points": [
+                "Personal health transformation inspired the product",
+                "Combines love for junk food with nutritional benefits",
+                "Strong early sales and recent Whole Foods approval"
+            ]
+        },
+        "initial_offer": {
+            "amount": "$300,000",
+            "equity": "10%"
+        },
+        "final_offer": {
+            "outcome": "No deal",
+            "details": "Despite a strong pitch and initial interest, the entrepreneur and the Sharks could not agree on terms. The entrepreneur declined the final offer of $300,000 for 15% equity, leading to no deal being made."
+        }
+    },
+    "facts_shark_tank_transcript_37_Supermix Studio.txt": {
+        "facts": {
+            "company_name": "Supermix Studio",
+            "founder": "Jennifer Stein-Bischoff",
+            "location": "Brooklyn, New York",
+            "launch_date": "October 2022",
+            "lifetime_sales": "$170,000",
+            "first_holiday_season_sales": "$60,000",
+            "year_to_date_sales": "$110,000",
+            "product_margins": {
+                "denim_jacket": "high $70s",
+                "sweatshirt": "$7.05 cost, $55 retail"
+            },
+            "patches": {
+                "total_patches": "over 500",
+                "super_sized_patches": "over 30"
+            },
+            "retail_partnership": {
+                "claire's_revenue_share": "30%"
+            }
+        },
+        "product_description": {
+            "name": "Supermix Studio",
+            "description": "The world's first interactive custom kids clothing brand. It empowers kids to celebrate their individuality by designing their own clothes. Users can hyper-personalize clothing and accessories with over 500 premium patches, creating 100% original designs.",
+            "materials": "Sustainable materials",
+            "product_range": "Sweats, denim jackets, backpacks, and accessories",
+            "design_process": {
+                "step_1": "Choose a style on the website",
+                "step_2": "Customize with patches using a drag-and-drop platform",
+                "step_3": "Supermix Studio brings the design to life in their studio"
+            },
+            "unique_selling_point": "Combines the creativity of a video game with the functionality of a clothing brand."
+        },
+        "pitch_summary": {
+            "full_pitch":"Hi, Sharks. My name is Jennifer Stein Bishoff and I'm from Brooklyn, New York. I'm seeking $250,000 in exchange for 10% equity of my company, Supermix Studio. Sharks. As a mom, I've witnessed the self-esteem boost that kids get when they pick out their own outfit. As a designer, I wondered how I could enable kids to create something that's a true reflection of who they are. Introducing Supermix Studio, the world's first interactive custom kids clothing brand.\nOur innovative platform empowers kids to celebrate their individuality by designing their own clothes. If a video game and a clothing brand had a baby, it would be Supermix Studio. Users can hyperpersonalize our clothing and accessories and create something that's 100% original. Just like Jake, who loves soccer and skating, nice, and Jasmine who loves tennis and dance.\nBut Supermix is really all about the design experience. Let me show you.\nFirst, visit our website and choose a style. We have sweats, denim jackets, backpacks, and accessories, all made of sustainable materials. Then click customize now. Our design platform opens up and you'll find over 500 premium patches to choose from. Just drag and drop and place them anywhere you want on the style, the front, back, sleeves, and even the hood. Step three is our job. In our studio, we bring your child's masterpiece to life. As you can see, May is wearing the final product, just like the one designed on screen. Nice. Nice.\nAnd the best part, your kid won't want to take Supermix off because they're proud of it. That's the Supermix magic.\nSharks, who wants to join me in empowering kids to express themselves by literally wearing their hearts on their sleeves? Ready, set, patch.",
+            "pitch_delivery": "Jennifer delivered her pitch with enthusiasm and confidence, emphasizing her passion for empowering kids to express themselves through clothing. She used a storytelling approach, sharing her personal journey as a mom and designer, and demonstrated the product's customization process live.",
+            "sentiment": "Positive and passionate. Jennifer's excitement for the product and its potential was evident throughout the pitch.",
+            "story": "Jennifer shared her inspiration for Supermix Studio, which came from her experience as a mom during the pandemic. She noticed how much fun her kids had customizing their clothes and saw an opportunity to create a brand that allows kids to design their own clothing.",
+            "key_aspects": {
+                "focus_on_kids": "Highlighted the self-esteem boost kids get from designing their own outfits.",
+                "innovation": "Positioned Supermix Studio as a unique blend of a video game and a clothing brand.",
+                "sustainability": "Emphasized the use of sustainable materials.",
+                "retail_expansion": "Discussed plans to expand into physical retail locations with kiosks."
+            }
+        },
+        "initial_offer": {
+            "amount": "$250,000",
+            "equity": "10%"
+        },
+        "final_offer": {
+            "amount": "$250,000",
+            "equity": "20%",
+            "royalty": "3.5% (until the initial investment is repaid)",
+            "investors": [
+                "Lori",
+                "Robert"
+            ]
+        }
+    },
+    "facts_shark_tank_transcript_19_Do Amore.txt": {
+        "facts": {
+            "sales_last_year": "$8.3 million",
+            "sales_this_year": "$11.5 million",
+            "net_profit_last_year": "less than $100,000",
+            "net_profit_this_year": "$460,000 (cash flow positive)",
+            "average_order_value": "$3,900",
+            "gross_margins": "41%",
+            "percentage_of_profits_donated": "20.5%",
+            "amount_donated_per_ring": "$50",
+            "countries_with_water_projects": "9",
+            "initial_investment": "$18,000 in 2013",
+            "total_sales_to_date": "$26 million plus"
+        },
+        "product_description": {
+            "product": "Do Amore rings",
+            "materials": "Recycled precious metals (gold, platinum) and ethically-sourced or lab-created diamonds",
+            "unique_feature": "Each ring funds clean water projects in developing countries",
+            "impact": "Provides one person access to clean water per ring sold",
+            "customization": "Customers can design rings online",
+            "transparency": "Customers receive photos and GPS coordinates of the water well their purchase funded"
+        },
+        "pitch_summary": {
+            "full_pitch": "hi sharks my name is Krishna matramka and I'm from Houston Texas my company do Amore is improving one of the oldest traditions in the world sharks many of you have shopped for engagement or wedding rings before but looking back what do you remember about that ring maybe the story was from the carrot weight maybe how much you spent but what if your life-changing day could have changed another life forever that's exactly what do Amore does not only do we create some of the most sustainable rings in the world using recycled precious metals and ethically sourced stones but we take it one step further every dolomore ring gives a person in a developing country access to clean water this way a couple can change another life forever on their special day with each ring our customers are literally helping to solve one of the most pressing problems in the world today so how does it work sharks it's simple just visit our website and design the perfect ring for your loved one and when you're ready just check out and we'll begin making your ring right here in the USA and when you receive your ring you and your partner can see the specific impact that your ring made you can pull up a photo and the GPS coordinates of the actual water well you helped build along with information on the community that now has access to clean water clean water changes everything we've already built water projects in nine countries and the list keeps growing so sharks for six hundred thousand dollars in exchange for six percent of my company which one of you would like to\nbe my partner and say yes to my proposal.",
+            "delivery": "Passionate and heartfelt, with a focus on the emotional and social impact of the product",
+            "sentiment": "Positive and inspiring, emphasizing the dual purpose of the rings (love and charity)",
+            "story": "Entrepreneur shared a personal story about witnessing a child die from contaminated water in India, which inspired the mission of Do Amore",
+            "key_aspects": "Highlighted the sustainability and ethical sourcing of materials, the social impact of clean water projects, and the growth potential of the business"
+        },
+        "initial_offer": {
+            "amount_requested": "$600,000",
+            "equity_offered": "6%"
+        },
+        "final_offer": {
+            "investor": "Daniel",
+            "amount_invested": "$700,000",
+            "equity_taken": "15%",
+            "additional_terms": "Investor agreed to donate the equivalent of 3% equity to the clean water cause"
+        }
+    },
+    "facts_shark_tank_transcript_18_Behave Bras.txt": {
+        "facts": {
+            "founded": 2020,
+            "sales": "$110,000 in 18 months",
+            "margins": {
+                "bras": "87%",
+                "panties": "83%"
+            },
+            "return_rate": "12% (industry average is 20% to 40%)",
+            "sizing": "30 to 38 band size, DD to I cup",
+            "patent_status": "Patent pending (expected in two weeks)"
+        },
+        "product_description": {
+            "name": "Behave Bras",
+            "technology": "Stayz technology (patent-pending)",
+            "features": [
+                "Stretchy fabric pieces (Stayz) in the cup to encapsulate each breast",
+                "Eliminates boob smash, boob jiggle, and boob sweat",
+                "Wire-free design",
+                "Padded straps for comfort",
+                "Designed for large breasts (DD to I cup)"
+            ],
+            "price": "$75 per bra",
+            "target_market": "50 million women in the U.S. with large breasts"
+        },
+        "pitch_summary": {
+            "entrepreneur": "Athena Kasvikis",
+            "background": "Greek and Italian heritage, former brand manager at Procter & Gamble, startup experience",
+            "story": "Developed large breasts at a young age, struggled with discomfort, and created Behave Bras to solve the problem for herself and others.",
+            "full_pitch": "hi sharks my name is Athena kazvikis I'm from Boston Massachusetts and I'm seeking 150 000 for 15 percent of my company behave for us so sharks I grew up in a big Greek family and I always felt supported but I developed a problem actually two big problems I developed large breasts at a young age and they just destroyed my back and my neck and my shoulders I used to have to wear not one not two three sports bras just to play soccer like and keep the girls in place without losing an eye and I am not alone there are 50 million women today in the United States with large breasts struggling to find support and comfortable options that's why I developed patent-pending stays technology that you can only find on a behaved bra because I know from personal experience large breasts need a lot more than just lift let me show you how it works so stays are stretchy pieces of fabric and they live in the cup of every behave bra they encapsulate each breast and ensure that both of the girls are staying in their assigned seats they're kind of like a soft seat belt but for your bust and stays are so secure that they keep you supported even if you go sideways so stays get rid of boob smash boob jiggle and boob sweat and they are a huge reason my customers tell me behave bras is not just the most supportive thing in the bra drawer but it's also the most beautiful so you guys have behaved bras in front of you and I really am super excited to show you the product",
+            "delivery": "Passionate, personal, and confident. Used humor and relatable anecdotes to connect with the Sharks.",
+            "sentiment": "Positive and enthusiastic. Sharks were impressed by her story, product, and business acumen.",
+            "key_points": [
+                "Highlighted the underserved market of women with large breasts",
+                "Demonstrated the Stayz technology and its benefits",
+                "Emphasized the fast-growing wire-free lingerie segment",
+                "Shared strong sales and margin numbers",
+                "Expressed commitment to building a brand, not just a product"
+            ]
+        },
+        "initial_offer": {
+            "entrepreneur": "$150,000 for 15% equity"
+        },
+        "final_offer": {
+            "shark": "Kevin O'Leary (Mr. Wonderful)",
+            "deal": "$150,000 for 20% equity",
+            "negotiation": "Athena initially countered with 17%, but ultimately accepted the 20% offer after Kevin emphasized his belief in her and the long-term potential of the business."
+        }
+    },
+    "facts_shark_tank_transcript_17_Calm Strips.txt": {
+        "facts": {
+            "sales": "$2.5 million",
+            "return_rate": "less than 1%",
+            "cost_to_make_soft_sand": "$1",
+            "cost_to_make_river_rocks": "$2",
+            "shipping_cost": "$3",
+            "profit_last_year": "$193,000",
+            "sales_last_three_months": "$400,000",
+            "number_of_schools_using_product": "3,000"
+        },
+        "product_description": {
+            "name": "Calm Strips",
+            "description": "Textured sensory adhesives that help reduce fidgeting, increase focus, and regulate restless energy. They are reusable and residue-free, can be stuck to various surfaces like phones, laptops, and desks. Available in Soft Sand and River Rocks textures in Calm Circles and Calm Strips.",
+            "price": "$12.49 for a five-pack"
+        },
+        "pitch_summary": {
+            "full_pitch": "hi sharks I'm Michael Malkin and I'm Lucy Fuller and we're from Newport News Virginia today we are seeking 250 000 in exchange for 10 of our company com strips com strips are a cool new way to help people reduce their anxiety and that is just scratching at the surface have you ever had a day like my animated friend Charlie here this traffic is stressing him out this cartoon Cloud came out of nowhere and Charlie forgot his umbrella oh Charlie and now his phone is blowing up with angry messages from his comically evil boss we've all gotten them but this brings Charlie's anxiety to an all-time high luckily Charlie remembers he has calm strips a healthy way to calm and ground himself comp ships might look like any other sticker but they're actually textured sensory adhesives people everywhere are rubbing scratching or picking at the textured surface of their calm strips to help reduce fidgeting increase focus and regulate Restless energy they're reusable and residue free meaning they can be stuck to your phone your laptop your desk teachers and students alike love them because it helps kids manage their own Restless energy without disrupting the rest of the class so sharks who wants to invest in bomb strips and show the world how easy it is to take a little bit of calm with you everywhere",
+            "delivery": "The entrepreneurs, Michael Malkin and Luce Fuller, delivered their pitch with a mix of personal stories, humor, and data. They used a relatable scenario involving a character named Charlie to illustrate how Calm Strips can help manage anxiety. The pitch was enthusiastic and engaging, with the entrepreneurs clearly passionate about their product and its impact on users.",
+            "sentiment": "Positive and passionate, with a strong emphasis on the product's benefits and the personal connection the entrepreneurs have with the product.",
+            "story": "Michael Malkin came up with the idea for Calm Strips after working in a stressful environment at an Apple retail store. He found that tactile sensory touch helped him manage his anxiety, leading to the creation of Calm Strips. The product has since gained significant traction, especially in schools, and has helped many people manage their anxiety.",
+            "other_aspects": "The entrepreneurs highlighted the product's success, including significant sales figures and a low return rate. They also discussed the potential for future product development, such as die-cut shapes for tracing fingers."
+        },
+        "initial_offer": {
+            "amount": "$250,000",
+            "equity": "10%"
+        },
+        "final_offer": {
+            "investor": "Robert",
+            "amount": "$250,000",
+            "equity": "35%"
+        }
+    },
+    "facts_shark_tank_transcript_13_MAXPRO SmartConnect.txt": {
+        "facts": {
+            "product_development_time": "Over 5 years",
+            "first_shipping_date": "July of last year",
+            "sales_last_year": "$4 million",
+            "sales_this_year": "Over $8 million",
+            "projected_sales_this_year": "Over $12 million",
+            "retail_value": "$849",
+            "cost_to_make": "$205 landed cost, $20 total between pick and pack and shipping",
+            "monthly_burn_rate": "$100,000",
+            "inventory_value": "Over $5 million",
+            "return_rate": "Less than 5%",
+            "endorsement": "Shaq, with a deal for 1.25% equity this year, potentially up to 5% over 4 years"
+        },
+        "product_description": {
+            "name": "MAXPRO SmartConnect",
+            "type": "Portable cable machine",
+            "weight": "10 pounds",
+            "resistance_range": "5 pounds to 300 pounds",
+            "features": [
+                "Portable, fits in a bag",
+                "Uses patent-pending power clutch dial",
+                "Onboard sensors for workout analytics",
+                "Compatible with MAXPRO coaching app",
+                "Versatile, can be used anywhere"
+            ],
+            "ecosystem": "Developed a whole ecosystem of products that use the MAXPRO for resistance"
+        },
+        "pitch_summary": {
+            "full_pitch":"hello sharks my name is Mazar and I'm from just outside Detroit the Motor City it's no secret that health and fitness is extremely important to many people around the world yet inactivity and obesity continue to rise primarily due to limits on time space will motivation the Max Pro we can help you overcome those challenges by making Fitness more fun and accessible with our award-winning first of his kind extremely versatile portable cable machine literally fits in a bag this is the Max Pro Smart Connect this amazing little 10 pound machine gives you five pounds to 300 pounds of resistance with a simple turn of our patent-pending power clutch dial ready easy to use right out of the box no heavy bulky equipment no gimmicky gadgets no flimsy bands use practically anywhere we have developed a whole ecosystem of products that use a Max Pro for resistance wow basically with Max Pro workouts are only limited by your imagination but wait this is Shark Tank and we have much more I mentioned that Max Pro is connected our onboard sensors relay detailed workout analytics to our Max Pro coaching app and Max Pro we're not just a single Product Company together with our customers we're building a Global Lifestyle brand and for five hundred thousand dollars I'm offering 2.5 percent",
+            "delivery": "Nezar delivered the pitch with confidence, emphasizing the versatility and portability of the MAXPRO SmartConnect. He highlighted the product's unique features, such as its adjustable resistance and connectivity to a coaching app.",
+            "sentiment": "The pitch was enthusiastic and optimistic, with Nezar focusing on the product's potential to revolutionize fitness by making it more accessible and fun.",
+            "story": "Nezar shared his background in automotive engineering and his personal motivation for creating MAXPRO, stemming from his own challenges with maintaining a fitness routine while traveling. He also mentioned the endorsement from Shaq, adding credibility and star power to the brand.",
+            "key_aspects": [
+                "Emphasis on the product's versatility and portability",
+                "Highlighting the ecosystem of products and the coaching app",
+                "Personal story connecting to the product's creation",
+                "Mention of significant sales growth and endorsement by Shaq"
+            ]
+        },
+        "initial_offer": {
+            "amount_requested": "$500,000",
+            "equity_offered": "2.5%"
+        },
+        "final_offer": {
+            "investor": "Mark Cuban",
+            "amount_offered": "$500,000",
+            "equity": "3%",
+            "additional_terms": [
+                "Same deal as Shaq in advisory shares (5% vested over 4 years)",
+                "Potential assistance with replacing the line of credit and inventory management"
+            ]
+        }
+    },
+    "facts_shark_tank_transcript_12_Santa's Enchanted Mailbox.txt": {
+        "facts": {
+            "sales_first_year": "$120,000",
+            "sales_second_year": "$1.7 million",
+            "licensing_agreement_percentage_first_year": "4%",
+            "licensing_agreement_percentage_second_and_third_year": "6%",
+            "cost_to_make": "$17.25",
+            "selling_price": "$49.99",
+            "magic_price_point": "$24.99",
+            "mold_cost": "$15,000 to $30,000"
+        },
+        "product_description": {
+            "name": "Santa's Enchanted Mailbox",
+            "functionality": "Allows children to send letters, lists, drawings, and communicate with Santa and his elves. The mailbox magically makes the letter disappear, simulating it being sent to the North Pole.",
+            "features": [
+                "Magical envelope insertion",
+                "Enchanted sounds and chimes",
+                "Letter disappears upon reopening"
+            ]
+        },
+        "pitch_summary": {
+            "full_pitch": "hi sharks I'm Chris searey and I'm Lisa Siri and we're from Wallingford Connecticut and we are the founders of Santa's Enchanted mailbox here today seeking an investment of a hundred and fifty thousand dollars in exchange for 30 equity in our business writing letters to Santa is a tradition as old as Saint Nick himself but with the rising cost of postage Santa has chosen our family to create an exciting and Innovative way to send your letters to the North Pole with Santa's Enchanted mailbox children everywhere can now send their letters lists drawings and communicate with Santa and his elves all season long with real magic happening right before your eyes allow us to demonstrate how our product works simply insert the magical envelope into Santa's Enchanted mailbox close the door raise the flag listen to the enchanted sounds and chimes and when the mailbox is reopened your letter is gone magically serious but sharks don't just take our word for how much fun this new family Christmas tradition is take a look at some of the excitement from children around the world [Music] so sharks which one of you wants a spot on Santa's nice list come join our family in spreading Christmas joy around the world how did you even come up with this idea this is a family business my wife and I we've been married 12 years yesterday yeah okay congratulations congratulations very much um when our oldest who's now 10 was three years old we used to put out this cardboard decorative flimsy mailbox as a decoration and we said wouldn't it be cool if we could bring real magic right in front of them not something left to the imagination so my stepfather-in-law is a retired engineer he helped create the Prototype then we secured two granted utility patents we traded and then what again how do we go about bringing this to the masses so we decided to take a licensing route Lisa and I started writing anybody that wanted to hear our story I pitched to anybody who would take a meeting with me to learn more about the product and we found a wholesale Christmas based company and signed a three-year licensing agreement our licensing agreement just came to an end this is our first year out on our own and here we are here we are today",
+            "delivery": "The entrepreneurs, Chris and Elisa Cirri, presented their product with a live demonstration, showing how the mailbox works and the magical effect it has on children. They shared a heartfelt story about their family and how the idea came to life, emphasizing the joy and magic it brings to the holiday season.",
+            "sentiment": "The pitch was delivered with enthusiasm and a strong emotional appeal, focusing on the joy and wonder the product brings to children and families during Christmas.",
+            "story": "The idea originated from their family tradition of using a decorative mailbox. They wanted to create real magic for their children, leading to the development of Santa's Enchanted Mailbox. The product has evolved from a family project to a patented and trademarked business.",
+            "key_aspects": [
+                "Family-oriented business",
+                "Patented and trademarked product",
+                "Licensing agreement history",
+                "Focus on spreading Christmas joy"
+            ]
+        },
+        "initial_offer": {
+            "investment_sought": "$150,000",
+            "equity_offered": "30%"
+        },
+        "final_offer": {
+            "outcome": "No deal was made. All sharks declined to invest due to concerns about the product's seasonality, high manufacturing costs, and the challenges of marketing and distribution."
+        }
+    },
+    "facts_shark_tank_transcript_35_Play Maysie.txt": {
+        "facts": {
+            "initial_investment": "$25,000 personal savings",
+            "kickstarter_goal": "$25,000",
+            "kickstarter_raised": "$30,000",
+            "total_revenue_2021": "$170,000",
+            "year_to_date_sales": "$55,000",
+            "projected_end_of_year_sales": "$400,000",
+            "inventory_on_hand": "9,000 units",
+            "inventory_value": "$500,000",
+            "cost_per_unit_landed": "$13",
+            "selling_price": "$49.99",
+            "margin": "70%",
+            "previous_investor": "$85,000 for 10%"
+        },
+        "product_description": {
+            "name": "Play Maysie",
+            "type": "Portable dollhouse",
+            "features": [
+                "Inspired by vintage tin lunch boxes",
+                "Opens on both sides to reveal two interchangeable rooms",
+                "Magnetic floors with attached wooden furniture",
+                "No loose or lost pieces",
+                "Easy cleanup and all-in-one storage",
+                "Gender-neutral design",
+                "Set of six characters",
+                "Plans to expand character storylines and product line"
+            ],
+            "use_cases": [
+                "Quality play on the go",
+                "Reducing toy clutter at home"
+            ]
+        },
+        "pitch_summary": {
+            "full_pitch": "hi sharks my name is Kayla Lupine I'm from Cleveland Ohio and I am seeking $150,000 for 10% of my company play Maisy sharks my daughter loves to play but as a first time Mom I was clu to the frustrations that toys add to a household I was investing more time trying to find missing pieces than my daughter was spending playing with them not to mention walking around the house at night was like navigating a Minefield of loose toys one wrong step and Bam I scream she wakes up and I still have a house full of toys to clean up toys should bring joy to a home not mess that's why I created play mey play mey is a portable dollhouse for quality play on the go and less mess at home our cases were inspired by vintage tin lunch boxes that open on both sides to reveal two interchangeable rooms our magnetic floors with attached wooden furniture means no loose pieces no lost pieces and no more bottom of the foot ois for moms and dads when play time is over simply close your case put them on a shelf stack them in a pile or hang them on a hook for easy clean up and all-in-one storage whether you're planning a long car ride or just looking to clear the clutter in your home play mey keeps your child's imagination active and your cleaning to-do list a little bit shorter so who's ready to help me save the souls (soles) of parents all across America with Play Maysie",
+            "delivery": "The pitch was delivered with a personal story about the entrepreneur's journey as a first-time mom and the challenges of toy clutter. The entrepreneur shared her inspiration for creating Play Maysie and her vision for the brand.",
+            "sentiment": "The pitch was heartfelt and passionate, with a strong emotional appeal. The entrepreneur's personal story of overcoming adversity and her dedication to her daughter resonated with the Sharks.",
+            "story": "The entrepreneur, Kayla Lupean, created Play Maysie to solve the problem of toy clutter and lost pieces. She shared her journey of becoming a single mother, adopting her daughter, and building the business from scratch using her personal savings. She emphasized her commitment to creating a gender-neutral, inclusive toy brand.",
+            "key_aspects": [
+                "Personal connection to the product",
+                "Clear problem-solution narrative",
+                "Vision for brand expansion",
+                "Demonstrated perseverance and passion"
+            ]
+        },
+        "initial_offer": {
+            "amount": "$150,000",
+            "equity": "10%"
+        },
+        "final_offer": {
+            "shark": "Barbara",
+            "amount": "$150,000",
+            "equity": "20%",
+            "additional_terms": "$7 per portable dollhouse sold until the investment is recouped"
+        }
+    }
+}
