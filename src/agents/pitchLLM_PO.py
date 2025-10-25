@@ -132,15 +132,51 @@ class PitchProgram(dspy.Module):
             return None
 
 # ---------- 4) OPTIMIZATION ----------
-def pitch_metric(example, pred, trace=None):
-    """Metric for evaluating pitch quality"""
+def llm_judge_metric(example, pred, trace=None):
+    """LLM-as-a-judge evaluation - direct approach, not DSPy style"""
     try:
         resp = pred["response"] if isinstance(pred, dict) else pred.response
         offer = resp.Initial_Offer
-        ok = bool(resp.Pitch and offer.Valuation and offer.Equity_Offered and offer.Funding_Amount)
-        return ok
-    except Exception:
-        return False
+        
+        if not (resp.Pitch and offer.Valuation and offer.Equity_Offered and offer.Funding_Amount):
+            return 0.0
+        
+        # Direct evaluation prompt - no DSPy signatures
+        prompt = f"""
+            Rate this startup pitch from 0.0 to 1.0:
+
+            PITCH: {resp.Pitch}
+
+            FINANCIAL TERMS:
+            - Valuation: {offer.Valuation}
+            - Equity Offered: {offer.Equity_Offered}  
+            - Funding Requested: {offer.Funding_Amount}
+            - Key Terms: {offer.Key_Terms}
+
+            EVALUATION CRITERIA:
+            - Problem/Solution clarity (25%)
+            - Market opportunity (25%) 
+            - Financial logic (25%)
+            - Persuasiveness (25%)
+
+            Respond with only a number between 0.0 and 1.0.
+            """
+        
+        # Direct LLM call - not through DSPy modules
+        response = dspy.settings.lm(prompt)
+        
+        # Direct parsing
+        import re
+        score_match = re.search(r'(\d+\.?\d*)', str(response))
+        if score_match:
+            score = float(score_match.group(1))
+            return min(max(score, 0.0), 1.0)
+        
+        return 0.5  # Default if parsing fails
+        
+    except Exception as e:
+        print(f"LLM judge error: {e}")
+        return 0.0
 
 def maybe_compile(program, train_examples=None, use_mipro=False, enable_optimization=True):
     """Compile program with optimization if training examples provided"""
@@ -166,7 +202,7 @@ def maybe_compile(program, train_examples=None, use_mipro=False, enable_optimiza
 # ---------- 5) MAIN EXECUTION ----------
 if __name__ == "__main__":
     # Fix file path
-    facts_path = Path("./src/agno_agents/data/outputs/facts_and_productdescriptions.json")
+    facts_path = Path("./src/agents/data/outputs/facts_and_productdescriptions.json")
     
     if not facts_path.exists():
         print(f"Error: File not found at {facts_path}")

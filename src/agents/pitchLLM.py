@@ -154,7 +154,7 @@ def maybe_compile(program, train_examples=None, use_mipro=False):
 # ---------- 5) MAIN EXECUTION ----------
 if __name__ == "__main__":
     # Fix file path
-    facts_path = Path("./src/agno_agents/data/outputs/facts_and_productdescriptions.json")
+    facts_path = Path("./src/agents/data/outputs/facts_and_productdescriptions.json")
     
     if not facts_path.exists():
         print(f"Error: File not found at {facts_path}")

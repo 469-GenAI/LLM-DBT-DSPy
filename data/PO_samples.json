@@ -66,16 +66,21 @@
             "delivery": "Wendy Hoffmeister delivered her pitch with enthusiasm and a personal story, engaging the Sharks with her passion for gnomes and her journey from a broken heart to a successful business.",
             "sentiment": "Positive and inspiring, with a focus on the joy and emotional connection gnomes bring to people.",
             "story": "Wendy turned a personal hobby into a thriving business after a personal setback, starting with less than $1,000 and growing to nearly $700,000 in sales within 18 months.",
-            "key_aspects": "Highlighted the emotional appeal of gnomes, the profitability and scalability of the business, and the potential for growth with the right strategic partner."
+            "key_aspects": [
+                "Highlighted the emotional appeal of gnomes",
+                "Profitability and scalability of the business",
+                "Potential for growth with the right strategic partner"
+            ]
         },
         "initial_offer": {
-            "amount": "$200,000",
-            "equity": "20%"
+            "amount_requested": "$200,000",
+            "equity_offered": "20%",
+            "valuation_implied": "$1,000,000"
         },
         "final_offer": {
-            "shark": "Daymond",
-            "amount": "$200,000",
-            "equity": "30%",
+            "investor": "Daymond",
+            "amount_offered": "$200,000",
+            "equity_taken": "30%",
             "additional_terms": "No royalty"
         }
     },
@@ -120,8 +125,9 @@
             ]
         },
         "initial_offer": {
-            "amount": "$300,000",
-            "equity": "10%"
+            "amount_requested": "$300,000",
+            "equity_offered": "10%",
+            "valuation_implied": "$3,000,000"
         },
         "final_offer": {
             "outcome": "No deal",
@@ -174,12 +180,13 @@
             }
         },
         "initial_offer": {
-            "amount": "$250,000",
-            "equity": "10%"
+            "amount_requested": "$250,000",
+            "equity_offered": "10%",
+            "valuation_implied": "$2,500,000"
         },
         "final_offer": {
-            "amount": "$250,000",
-            "equity": "20%",
+            "amount_offered": "$250,000",
+            "equity_taken": "20%",
             "royalty": "3.5% (until the initial investment is repaid)",
             "investors": [
                 "Lori",
@@ -214,11 +221,16 @@
             "delivery": "Passionate and heartfelt, with a focus on the emotional and social impact of the product",
             "sentiment": "Positive and inspiring, emphasizing the dual purpose of the rings (love and charity)",
             "story": "Entrepreneur shared a personal story about witnessing a child die from contaminated water in India, which inspired the mission of Do Amore",
-            "key_aspects": "Highlighted the sustainability and ethical sourcing of materials, the social impact of clean water projects, and the growth potential of the business"
+            "key_aspects": [
+                "Sustainability and ethical sourcing of materials",
+                "Social impact of clean water projects",
+                "Growth potential of the business"
+            ]
         },
         "initial_offer": {
             "amount_requested": "$600,000",
-            "equity_offered": "6%"
+            "equity_offered": "6%",
+            "valuation_implied": "$10,000,000"
         },
         "final_offer": {
             "investor": "Daniel",
@@ -229,7 +241,7 @@
     },
     "facts_shark_tank_transcript_18_Behave Bras.txt": {
         "facts": {
-            "founded": 2020,
+            "founded": "2020",
             "sales": "$110,000 in 18 months",
             "margins": {
                 "bras": "87%",
@@ -268,11 +280,14 @@
             ]
         },
         "initial_offer": {
-            "entrepreneur": "$150,000 for 15% equity"
+            "amount_requested": "$150,000",
+            "equity_offered": "15%",
+            "valuation_implied": "$1,000,000"
         },
         "final_offer": {
-            "shark": "Kevin O'Leary (Mr. Wonderful)",
-            "deal": "$150,000 for 20% equity",
+            "investor": "Kevin O'Leary (Mr. Wonderful)",
+            "amount_offered": "$150,000",
+            "equity_taken": "20%",
             "negotiation": "Athena initially countered with 17%, but ultimately accepted the 20% offer after Kevin emphasized his belief in her and the long-term potential of the business."
         }
     },
@@ -300,13 +315,14 @@
             "other_aspects": "The entrepreneurs highlighted the product's success, including significant sales figures and a low return rate. They also discussed the potential for future product development, such as die-cut shapes for tracing fingers."
         },
         "initial_offer": {
-            "amount": "$250,000",
-            "equity": "10%"
+            "amount_requested": "$250,000",
+            "equity_offered": "10%",
+            "valuation_implied": "$2,500,000"
         },
         "final_offer": {
             "investor": "Robert",
-            "amount": "$250,000",
-            "equity": "35%"
+            "amount_offered": "$250,000",
+            "equity_taken": "35%"
         }
     },
     "facts_shark_tank_transcript_13_MAXPRO SmartConnect.txt": {
@@ -351,12 +367,13 @@
         },
         "initial_offer": {
             "amount_requested": "$500,000",
-            "equity_offered": "2.5%"
+            "equity_offered": "2.5%",
+            "valuation_implied": "$20,000,000"
         },
         "final_offer": {
             "investor": "Mark Cuban",
             "amount_offered": "$500,000",
-            "equity": "3%",
+            "equity_taken": "3%",
             "additional_terms": [
                 "Same deal as Shaq in advisory shares (5% vested over 4 years)",
                 "Potential assistance with replacing the line of credit and inventory management"
@@ -396,8 +413,9 @@
             ]
         },
         "initial_offer": {
-            "investment_sought": "$150,000",
-            "equity_offered": "30%"
+            "amount_requested": "$150,000",
+            "equity_offered": "30%",
+            "valuation_implied": "$500,000"
         },
         "final_offer": {
             "outcome": "No deal was made. All sharks declined to invest due to concerns about the product's seasonality, high manufacturing costs, and the challenges of marketing and distribution."
@@ -449,13 +467,14 @@
             ]
         },
         "initial_offer": {
-            "amount": "$150,000",
-            "equity": "10%"
+            "amount_requested": "$150,000",
+            "equity_offered": "10%",
+            "valuation_implied": "$1,500,000"
         },
         "final_offer": {
-            "shark": "Barbara",
-            "amount": "$150,000",
-            "equity": "20%",
+            "investor": "Barbara",
+            "amount_offered": "$150,000",
+            "equity_taken": "20%",
             "additional_terms": "$7 per portable dollhouse sold until the investment is recouped"
         }
     }
