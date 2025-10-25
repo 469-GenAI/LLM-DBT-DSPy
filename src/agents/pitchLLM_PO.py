@@ -135,17 +135,22 @@ class PitchProgram(dspy.Module):
 # ---------- 4) OPTIMIZATION ----------
 # Note: LLM-as-a-judge evaluation is now handled by the separated evaluators module
 
-def maybe_compile(program, train_examples=None, use_mipro=False, enable_optimization=True):
+def maybe_compile(program, train_examples=None, use_mipro=False, enable_optimization=True, verbose=False):
     """Compile program with optimization if training examples provided"""
     if not train_examples or not enable_optimization:
         print("Skipping optimization - no training examples or optimization disabled")
         return program
     
     print(f"Starting optimization with {len(train_examples)} training examples...")
+    
+    # Create metric with verbose output for optimization
+    def verbose_metric(example, pred, trace=None):
+        return llm_pitch_metric(example, pred, trace, verbose=verbose)
+    
     if use_mipro:
-        opt = dspy.MIPROv2(metric=llm_pitch_metric)
+        opt = dspy.MIPROv2(metric=verbose_metric)
     else:
-        opt = dspy.BootstrapFewShot(metric=llm_pitch_metric)
+        opt = dspy.BootstrapFewShot(metric=verbose_metric)
     
     try:
         optimized_program = opt.compile(program, trainset=train_examples)
@@ -182,8 +187,8 @@ if __name__ == "__main__":
         print(f"✗ Failed to load training examples: {e}")
         train_examples = None
     
-    # Compile program with optimization
-    program = maybe_compile(program, train_examples, use_mipro=False, enable_optimization=True)
+    # Compile program with optimization (enable verbose output)
+    program = maybe_compile(program, train_examples, use_mipro=False, enable_optimization=True, verbose=True)
 
     rows = []
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -200,6 +205,18 @@ if __name__ == "__main__":
             continue
             
         resp = out["response"]
+        
+        # Evaluate the generated pitch with verbose output
+        print(f"\n🎯 EVALUATING PITCH FOR: {scenario}")
+        evaluation_score = llm_pitch_metric(
+            example={"product_data": product_data}, 
+            pred={"response": resp}, 
+            trace=None, 
+            verbose=True
+        )
+        
+        print(f"📊 Final Evaluation Score: {evaluation_score:.2f}")
+        print("-" * 50)
 
         rows.append({
             "scenario": scenario,
@@ -213,7 +230,8 @@ if __name__ == "__main__":
             "is_profitable": out["is_profitable"],
             "response": resp.model_dump(),
             "prompt": out.get("prompt", "N/A"),
-            "metrics": out.get("metrics", {})
+            "metrics": out.get("metrics", {}),
+            "evaluation_score": evaluation_score
         })
 
     df = pd.DataFrame(rows)

@@ -36,6 +36,7 @@ def sample_keys(json_file_path: str, seed: int = 42, num_samples: int = 10) -> l
     
     # Get all keys from the JSON
     all_keys = list(data.keys())
+    print("Number of keys in the JSON file: ", len(all_keys))
     
     if len(all_keys) < num_samples:
         print(f"Warning: Only {len(all_keys)} keys available, returning all keys.")
