@@ -22,8 +22,8 @@ lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API
 dspy.configure(lm=lm)
 
 
-mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM")
-mlflow.dspy.autolog()
+# mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM")
+# mlflow.dspy.autolog()
 
 
 # ---------- 1) DSPy SIGNATURES ----------
@@ -103,12 +103,27 @@ class PitchProgram(dspy.Module):
             pred = self.draft(financial_summary=financial_summary,
                           product_json=json.dumps(product_data, indent=2))
 
+                        # Capture the prompt from the LM's history immediately after the call
+            prompt_str = "No prompt captured"
+            try:
+                if hasattr(dspy.settings, 'lm') and dspy.settings.lm:
+                    # Access the last history entry
+                    if hasattr(dspy.settings.lm, 'history') and dspy.settings.lm.history:
+                        history_entry = dspy.settings.lm.history[-1]
+                        if isinstance(history_entry, dict):
+                            prompt_str = history_entry.get('messages', history_entry)
+                        else:
+                            prompt_str = str(history_entry)
+            except Exception as e:
+                print(f"Error capturing prompt: {e}")
+
             return {
                 "is_profitable": is_profitable,
                 "valuation": valuation,
                 "funding_amount": funding_amount,
                 "response": pred.response,
                 "financial_summary": financial_summary,
+                "prompt": prompt_str,
                 "metrics": extract_metrics(pred) if hasattr(pred, 'metrics') else None
             }
         except Exception as e:
@@ -180,7 +195,7 @@ if __name__ == "__main__":
             "funding_amount": f"${out['funding_amount']:,.0f}",
             "is_profitable": out["is_profitable"],
             "response": resp.model_dump(),
-            "prompt": out["financial_summary"],
+            "prompt": out.get("prompt", "N/A"),
             "metrics": out.get("metrics", {})
         })
 
