@@ -27,6 +27,11 @@ dspy.configure(lm=lm)
 mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM_PO")
 mlflow.dspy.autolog()
 
+"""
+This module is used to generate a pitch and initial offer for a given product with the addition of BootstrapFewShot optimization.
+
+"""
+
 
 # ---------- 1) DSPy SIGNATURES ----------
 class FinancialsSig(dspy.Signature):
