@@ -1,3 +1,8 @@
+"""
+Mixture-Of-Agents approach without DSPy
+Edited from original file as there were many issues and the pipeline was brittle
+"""
+
 # Import required libraries
 import os, json, re
 import random
@@ -35,16 +40,28 @@ evaluator_model = "llama-3.3-70b-versatile"    # High-quality evaluation
 # Set the system level prompt
 NUM_AGENTS = 3
 taskmaster_system_prompt = f"""
-You are a sharktank pitch director. You will take control {NUM_AGENTS} other LLM agents like yourself. 
-You will be given a fact_dict containing the key facts of the product you will be creating the pitch for.
-Breakdown the task into 3 tasks and assign each portion to each LLM agent.
-Output your answer in a messages list that can be parsed by python's `eval()`. For example: 
-{{
-    "agent1" : [{{"role":"system", "content":"<insert role>"}}, {{"role":"user","content":"<insert prompt>"}}],
-    "agent2" : [{{"role":"system", "content":"<insert role>"}}, {{"role":"user","content":"<insert prompt>"}}],
-    "agent3" : [{{"role":"system", "content":"<insert role>"}}, {{"role":"user","content":"<insert prompt>"}}],
-}}
-Create winning pitches! No hallucinations! No explanations of the pitch!
+You are a sharktank pitch director coordinating {NUM_AGENTS} agents.
+Break down the pitch creation into 3 distinct tasks and assign each to an agent.
+
+For each agent, provide:
+1. A system role description
+2. A specific user task prompt
+
+Format your response as structured text (NOT JSON):
+
+AGENT 1:
+SYSTEM: [role description for agent 1]
+USER: [specific task prompt for agent 1]
+
+AGENT 2:
+SYSTEM: [role description for agent 2]  
+USER: [specific task prompt for agent 2]
+
+AGENT 3:
+SYSTEM: [role description for agent 3]
+USER: [specific task prompt for agent 3]
+
+Be specific about what each agent should focus on. No JSON, no code blocks, just structured text.
 """
 aggregator_system_prompt  = """
 You have been provided with a set of responses from various open-source models to the latest user query. 
@@ -76,6 +93,44 @@ def run_llm(model, system_prompt, user_prompt, temperature=0.7):
         print(f"Error running LLM with model {model}: {e}")
         return f"Error: {e}"
 
+def parse_taskmaster_response(response):
+    """Parse structured text response into message assignments."""
+    assignments = {}
+    
+    # Split by agent sections
+    sections = re.split(r'AGENT \d+:', response, flags=re.IGNORECASE)
+    
+    for i, section in enumerate(sections[1:], 1):  # Skip first empty section
+        agent_key = f"agent{i}"
+        lines = section.strip().split('\n')
+        
+        system_content = ""
+        user_content = ""
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith('SYSTEM:'):
+                system_content = line.replace('SYSTEM:', '').strip()
+            elif line.startswith('USER:'):
+                user_content = line.replace('USER:', '').strip()
+        
+        # Create the message structure
+        assignments[agent_key] = [
+            {"role": "system", "content": system_content or f"You are a pitch expert focusing on aspect {i}"},
+            {"role": "user", "content": user_content or f"Create a compelling pitch section"}
+        ]
+    
+    # Ensure we have all 3 agents
+    for i in range(1, 4):
+        agent_key = f"agent{i}"
+        if agent_key not in assignments:
+            assignments[agent_key] = [
+                {"role": "system", "content": f"You are a pitch expert focusing on aspect {i}"},
+                {"role": "user", "content": f"Create a compelling pitch section"}
+            ]
+    
+    return assignments
+
 def aggregate_results(results, original_prompt):
     """Aggregate multiple LLM responses into a single string."""
     aggregated = f"Original prompt: {original_prompt}\n\n"
@@ -104,41 +159,15 @@ def generate_pitch(facts, num_agents=NUM_AGENTS, reference_models=reference_mode
     """Run the main loop of the MOA process."""
     prompt = generate_user_prompt(facts)
     
-    # Get the LLM response
-    llm_response = run_llm(
+    # Get task assignments from taskmaster
+    taskmaster_response = run_llm(
         model=aggregator_model,
         system_prompt=taskmaster_system_prompt,
         user_prompt=prompt
     )
     
-    # Try to parse as JSON first, then fallback to eval if needed
-    try:
-        # Clean the response to extract JSON if it's wrapped in text
-        import json
-        import re
-        
-        # Look for JSON-like structure in the response
-        json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(0)
-            assignments = json.loads(json_str)
-        else:
-            # Fallback to eval for backward compatibility
-            assignments = eval(llm_response)
-            
-    except (json.JSONDecodeError, SyntaxError) as e:
-        print(f"Error parsing LLM response: {e}")
-        print(f"LLM response was: {llm_response}")
-        
-        # Create a fallback assignment structure
-        assignments = {
-            "agent1": [{"role": "system", "content": "You are a pitch expert focusing on the problem and solution."}, 
-                      {"role": "user", "content": f"Create a compelling pitch for: {prompt}"}],
-            "agent2": [{"role": "system", "content": "You are a pitch expert focusing on market opportunity and business model."}, 
-                      {"role": "user", "content": f"Create a compelling pitch for: {prompt}"}],
-            "agent3": [{"role": "system", "content": "You are a pitch expert focusing on financial projections and ask."}, 
-                      {"role": "user", "content": f"Create a compelling pitch for: {prompt}"}]
-        }
+    # Parse structured text response
+    assignments = parse_taskmaster_response(taskmaster_response)
     assignments_list = list(assignments.values())
 
     results = [run_llm(
@@ -157,18 +186,30 @@ def generate_pitch(facts, num_agents=NUM_AGENTS, reference_models=reference_mode
 # Create a fixed set of agents:
 agents = select_models()
 
-pitches = {}
-for name, fact in facts_store.items():
-    pitch = generate_pitch(
-        fact, 
-        num_agents=NUM_AGENTS, 
-        reference_models=reference_models
-    ).choices[0].message.content
+# pitches = {}
+# for name, fact in facts_store.items():
+#     pitch = generate_pitch(
+#         fact, 
+#         num_agents=NUM_AGENTS, 
+#         reference_models=reference_models
+#     )
 
-    pitches[name] = pitch
+#     pitches[name] = pitch
+pitches = {}
+# Limit to just 1 fact for testing
+sample_name = list(facts_store.keys())[0]
+sample_fact = facts_store[sample_name]
+
+pitch = generate_pitch(
+    sample_fact, 
+    num_agents=NUM_AGENTS, 
+    reference_models=reference_models
+)
+
+pitches[sample_name] = pitch
 
 # Output the dictionary as a JSON object
-with open('basic_multiagent_pitches.json', 'w') as f:
+with open('basic_MoA_no_DSPy_pitches.json', 'w') as f:
     json.dump(pitches, f, indent=4)
 
 
@@ -193,11 +234,15 @@ def generate_feedback_pitch(facts, num_agents=NUM_AGENTS, reference_models=refer
             prompt += f"""
             This is the feedback of your previous attempt: {feedback}
             """
-        assignments = eval(run_llm(
+        # Get task assignments from taskmaster
+        taskmaster_response = run_llm(
             model=aggregator_model,
             system_prompt=taskmaster_system_prompt,
             user_prompt=prompt
-        ))
+        )
+        
+        # Parse structured text response
+        assignments = parse_taskmaster_response(taskmaster_response)
         assignments_list = list(assignments.values())
 
         results = [
