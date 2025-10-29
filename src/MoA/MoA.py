@@ -186,6 +186,7 @@ def generate_pitch(facts, num_agents=NUM_AGENTS, reference_models=reference_mode
 # Create a fixed set of agents:
 agents = select_models()
 
+# uncomment if processing > 1 of the sharktank pitches
 # pitches = {}
 # for name, fact in facts_store.items():
 #     pitch = generate_pitch(
