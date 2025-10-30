@@ -7,23 +7,31 @@ from dotenv import load_dotenv
 
 import dspy
 from pydantic import BaseModel, Field
-from utils import ValuationTools, InitialOffer, PitchResponse, extract_metrics
+from .utils import ValuationTools, InitialOffer, PitchResponse, extract_metrics
 from tqdm import tqdm
 import pandas as pd
-import mlflow
+
+# Optional MLflow import for tracking
+try:
+    import mlflow
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
 
 # Load environment variables
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
 
-# Configure DSPy language model
-lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
-dspy.configure(lm=lm)
+# Configure DSPy language model only if GROQ_API_KEY is available
+if GROQ_API_KEY:
+    lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
+    dspy.configure(lm=lm)
 
-
-mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM")
-mlflow.dspy.autolog()
+# Configure MLflow if available
+if MLFLOW_AVAILABLE and DATABRICKS_PATH:
+    mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM")
+    mlflow.dspy.autolog()
 
 
 # ---------- 1) DSPy SIGNATURES ----------
