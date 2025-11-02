@@ -1,0 +1,417 @@
+# pitchLLM_structured.py - DSPy implementation for structured pitch generation
+"""
+DSPy-based pitch generation system that takes structured input and generates
+narrative pitches similar to Shark Tank pitches.
+
+This implementation supports optimization via BootstrapFewShot and MIPROv2.
+"""
+import os
+import json
+from pathlib import Path
+from datetime import datetime
+from dotenv import load_dotenv
+
+import dspy
+from pydantic import BaseModel, Field
+from tqdm import tqdm
+import pandas as pd
+
+# Import local utilities
+from utils import PitchInput, format_pitch_input
+from data_loader import load_and_prepare_data
+from eval.AssessPitch import AssessPitchQuality
+
+# Load environment variables
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+# Configure DSPy language model
+lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
+dspy.configure(lm=lm)
+
+
+# ---------- 1) DSPy SIGNATURES ----------
+class PitchGenerationSig(dspy.Signature):
+    """
+    Generate a compelling Shark Tank pitch from structured input.
+    
+    The pitch should:
+    - Start with an engaging introduction of the founders and company
+    - Present the investment ask clearly
+    - Tell a story about the problem from the customer's perspective
+    - Introduce the solution with compelling details
+    - End with a strong call to action for the Sharks
+    """
+    
+    pitch_data: str = dspy.InputField(
+        desc="Structured pitch data including company, founders, problem story, solution, and investment ask"
+    )
+    
+    pitch: str = dspy.OutputField(
+        desc="A compelling, narrative pitch in the style of Shark Tank presentations. "
+             "Should be conversational, engaging, and tell a complete story from problem to solution."
+    )
+
+
+# ---------- 2) DSPy MODULE ----------
+class StructuredPitchProgram(dspy.Module):
+    """
+    Main DSPy module for generating structured pitches.
+    
+    Takes structured pitch input and generates a narrative pitch string
+    using chain-of-thought reasoning.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.generate_pitch = dspy.ChainOfThought(PitchGenerationSig)
+    
+    def forward(self, input: dict):
+        """
+        Generate a pitch from structured input.
+        
+        Args:
+            input: Dictionary containing structured pitch data (from HF dataset)
+            
+        Returns:
+            dspy.Prediction with pitch field
+        """
+        # Convert the input dict to PitchInput model for validation and formatting
+        try:
+            pitch_input = PitchInput(**input)
+            formatted_input = format_pitch_input(pitch_input)
+        except Exception as e:
+            print(f"Warning: Could not parse input as PitchInput: {e}")
+            # Fallback: use JSON representation
+            formatted_input = json.dumps(input, indent=2)
+        
+        # Generate the pitch using chain-of-thought
+        prediction = self.generate_pitch(pitch_data=formatted_input)
+        
+        return prediction
+
+
+# ---------- 3) EVALUATION METRIC ----------
+class PitchEvaluator(dspy.Module):
+    """Module for evaluating pitch quality using AssessPitchQuality signature."""
+    
+    def __init__(self):
+        super().__init__()
+        self.assess = dspy.ChainOfThought(AssessPitchQuality)
+    
+    def forward(self, pitch_facts: str, ground_truth_pitch: str, generated_pitch: str):
+        """
+        Assess the quality of a generated pitch.
+        
+        Args:
+            pitch_facts: The structured facts the pitch was based on
+            ground_truth_pitch: The gold-standard human-written pitch
+            generated_pitch: The AI-generated pitch
+            
+        Returns:
+            Assessment with scores
+        """
+        assessment = self.assess(
+            pitch_facts=pitch_facts,
+            ground_truth_pitch=ground_truth_pitch,
+            generated_pitch=generated_pitch
+        )
+        return assessment
+
+
+def pitch_quality_metric(example, pred, trace=None):
+    """
+    Metric function for evaluating pitch quality during optimization.
+    
+    Args:
+        example: DSPy Example with input and output (ground truth)
+        pred: Prediction from the model
+        trace: Optional trace information
+        
+    Returns:
+        Float score between 0.0 and 1.0
+    """
+    try:
+        # Extract the generated pitch
+        generated_pitch = pred.pitch if hasattr(pred, "pitch") else str(pred)
+        
+        # Extract ground truth
+        ground_truth = example.output
+        
+        # Extract pitch facts from input
+        pitch_facts = json.dumps(example.input, indent=2)
+        
+        # Use the evaluator to assess quality
+        evaluator = PitchEvaluator()
+        assessment = evaluator(
+            pitch_facts=pitch_facts,
+            ground_truth_pitch=ground_truth,
+            generated_pitch=generated_pitch
+        )
+        
+        # Parse the assessment JSON to get the final score
+        try:
+            assessment_data = json.loads(assessment.pitch_assessment)
+            final_score = float(assessment_data.get("final_score", 0.0))
+            return final_score
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            print(f"Warning: Could not parse assessment: {e}")
+            # Fallback: basic comparison
+            return 0.5 if generated_pitch else 0.0
+            
+    except Exception as e:
+        print(f"Error in pitch_quality_metric: {e}")
+        return 0.0
+
+
+def simple_pitch_metric(example, pred, trace=None):
+    """
+    Simplified metric that checks if a pitch was generated.
+    Useful for faster iteration during development.
+    
+    Args:
+        example: DSPy Example with input and output
+        pred: Prediction from the model
+        trace: Optional trace information
+        
+    Returns:
+        Boolean indicating if pitch was generated
+    """
+    try:
+        generated_pitch = pred.pitch if hasattr(pred, "pitch") else str(pred)
+        # Check if pitch is non-empty and has reasonable length
+        return bool(generated_pitch and len(generated_pitch) > 100)
+    except Exception:
+        return False
+
+
+# ---------- 4) OPTIMIZATION ----------
+def compile_program(
+    program: StructuredPitchProgram,
+    trainset: list,
+    optimization_method: str = "none",
+    metric=None
+):
+    """
+    Compile the program with optional optimization.
+    
+    Args:
+        program: The StructuredPitchProgram to optimize
+        trainset: Training examples
+        optimization_method: "none", "bootstrap", or "mipro"
+        metric: Evaluation metric function
+        
+    Returns:
+        Compiled (possibly optimized) program
+    """
+    if optimization_method == "none":
+        print("Running without optimization (baseline)")
+        return program
+    
+    if metric is None:
+        metric = simple_pitch_metric
+    
+    if optimization_method == "bootstrap":
+        print("Compiling with BootstrapFewShot...")
+        optimizer = dspy.BootstrapFewShot(
+            metric=metric,
+            max_bootstrapped_demos=4,
+            max_labeled_demos=4
+        )
+        compiled_program = optimizer.compile(program, trainset=trainset)
+        return compiled_program
+    
+    elif optimization_method == "mipro":
+        print("Compiling with MIPROv2...")
+        optimizer = dspy.MIPROv2(
+            metric=metric,
+            num_candidates=10,
+            init_temperature=1.0
+        )
+        compiled_program = optimizer.compile(
+            program,
+            trainset=trainset,
+            num_trials=10,
+            max_bootstrapped_demos=4,
+            max_labeled_demos=4
+        )
+        return compiled_program
+    
+    else:
+        raise ValueError(f"Unknown optimization method: {optimization_method}")
+
+
+# ---------- 5) EVALUATION ----------
+def evaluate_program(program, testset, use_evaluator=False):
+    """
+    Evaluate the program on a test set.
+    
+    Args:
+        program: The program to evaluate
+        testset: List of test examples
+        use_evaluator: Whether to use detailed AssessPitch evaluation
+        
+    Returns:
+        List of results with predictions and scores
+    """
+    results = []
+    evaluator = PitchEvaluator() if use_evaluator else None
+    
+    for example in tqdm(testset, desc="Evaluating", unit="pitch"):
+        try:
+            # Generate pitch
+            prediction = program(input=example.input)
+            generated_pitch = prediction.pitch if hasattr(prediction, "pitch") else str(prediction)
+            
+            # Evaluate if requested
+            if use_evaluator:
+                pitch_facts = json.dumps(example.input, indent=2)
+                assessment = evaluator(
+                    pitch_facts=pitch_facts,
+                    ground_truth_pitch=example.output,
+                    generated_pitch=generated_pitch
+                )
+                
+                try:
+                    assessment_data = json.loads(assessment.pitch_assessment)
+                except (json.JSONDecodeError, AttributeError):
+                    assessment_data = {"final_score": 0.0, "reasoning": "Parse error"}
+            else:
+                assessment_data = None
+            
+            results.append({
+                "id": example.id,
+                "input": example.input,
+                "ground_truth": example.output,
+                "generated_pitch": generated_pitch,
+                "assessment": assessment_data
+            })
+            
+        except Exception as e:
+            print(f"Error processing example {example.id}: {e}")
+            results.append({
+                "id": example.id,
+                "input": example.input,
+                "ground_truth": example.output,
+                "generated_pitch": "",
+                "assessment": {"final_score": 0.0, "reasoning": f"Error: {str(e)}"}
+            })
+    
+    return results
+
+
+# ---------- 6) MAIN EXECUTION ----------
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Run structured pitch generation with DSPy")
+    parser.add_argument(
+        "--optimization",
+        type=str,
+        default="none",
+        choices=["none", "bootstrap", "mipro"],
+        help="Optimization method to use"
+    )
+    parser.add_argument(
+        "--train-size",
+        type=int,
+        default=None,
+        help="Number of training examples to use (default: all)"
+    )
+    parser.add_argument(
+        "--test-size",
+        type=int,
+        default=10,
+        help="Number of test examples to use (default: 10)"
+    )
+    parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Use detailed AssessPitch evaluation"
+    )
+    
+    args = parser.parse_args()
+    
+    print("=" * 80)
+    print("DSPy Structured Pitch Generation")
+    print("=" * 80)
+    
+    # Load data
+    print("\n1. Loading data from HuggingFace...")
+    data = load_and_prepare_data()
+    trainset = data["train"]
+    testset = data["test"]
+    
+    # Limit sizes if requested
+    if args.train_size:
+        trainset = trainset[:args.train_size]
+        print(f"   Using {len(trainset)} training examples")
+    
+    if args.test_size:
+        testset = testset[:args.test_size]
+        print(f"   Using {len(testset)} test examples")
+    
+    # Create program
+    print("\n2. Creating pitch generation program...")
+    program = StructuredPitchProgram()
+    
+    # Compile with optimization if requested
+    if args.optimization != "none":
+        print(f"\n3. Compiling with {args.optimization}...")
+        program = compile_program(
+            program,
+            trainset,
+            optimization_method=args.optimization,
+            metric=simple_pitch_metric
+        )
+    else:
+        print("\n3. Running baseline (no optimization)...")
+    
+    # Evaluate on test set
+    print("\n4. Evaluating on test set...")
+    results = evaluate_program(program, testset, use_evaluator=args.evaluate)
+    
+    # Save results
+    print("\n5. Saving results...")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    
+    # Create results dataframe
+    rows = []
+    for result in results:
+        row = {
+            "id": result["id"],
+            "company_name": result["input"].get("company_name", "Unknown"),
+            "ground_truth": result["ground_truth"],
+            "generated_pitch": result["generated_pitch"],
+            "optimization_method": args.optimization,
+            "model_name": lm.model,
+            "timestamp": timestamp
+        }
+        
+        if result["assessment"]:
+            row["final_score"] = result["assessment"].get("final_score", 0.0)
+            row["factual_score"] = result["assessment"].get("factual_score", 0.0)
+            row["narrative_score"] = result["assessment"].get("narrative_score", 0.0)
+            row["style_score"] = result["assessment"].get("style_score", 0.0)
+            row["reasoning"] = result["assessment"].get("reasoning", "")
+        
+        rows.append(row)
+    
+    df = pd.DataFrame(rows)
+    output_file = f"structured_pitch_results_{args.optimization}_{timestamp}.csv"
+    df.to_csv(output_file, index=False)
+    
+    print(f"\n✓ Results saved to: {output_file}")
+    
+    # Print summary statistics
+    if args.evaluate and "final_score" in df.columns:
+        print("\n" + "=" * 80)
+        print("EVALUATION SUMMARY")
+        print("=" * 80)
+        print(f"Average Final Score: {df['final_score'].mean():.3f}")
+        print(f"Average Factual Score: {df['factual_score'].mean():.3f}")
+        print(f"Average Narrative Score: {df['narrative_score'].mean():.3f}")
+        print(f"Average Style Score: {df['style_score'].mean():.3f}")
+    
+    print("\n✓ Done!")
+

@@ -1,3 +1,5 @@
+import dspy
+
 class AssessPitchQuality(dspy.Signature):
     """
     Assess the generated pitch against a gold-standard pitch.
