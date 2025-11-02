@@ -41,11 +41,17 @@ def test_data_loading():
         print(f"\n✓ First example structure:")
         print(f"  - Has 'input': {hasattr(first_example, 'input')}")
         print(f"  - Has 'output': {hasattr(first_example, 'output')}")
-        print(f"  - Input keys set: {first_example.input_keys}")
+        # In DSPy 3.0.3, check inputs using _input_keys or example repr
+        if hasattr(first_example, '_input_keys'):
+            print(f"  - Input keys: {first_example._input_keys}")
+        else:
+            print(f"  - Example: {first_example}")
         
         return data
     except Exception as e:
         print(f"✗ Error loading data: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
