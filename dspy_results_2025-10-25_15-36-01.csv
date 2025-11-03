@@ -1,8 +1,0 @@
-scenario,framework,layer,model_name,model_identifier,timestamp,valuation,funding_amount,is_profitable,response,prompt,metrics
-my_awesome_product,dspy,N/A,groq/llama-3.3-70b-versatile,groq/llama-3.3-70b-versatile-dspy_N/A,2025-10-25_15-36-01,"$60,301","$6,030",True,"{'Pitch': 'Invest in the future of smart home automation with My Awesome Product. Our AI-powered device has already generated $50,000 in revenue and $10,745 in profit in just 6 months. With your investment, we can expand our customer base and further develop our product to meet the growing demand for personalized home automation solutions. Join us in revolutionizing the way people start their day.', 'Initial_Offer': {'Valuation': '$60,301', 'Equity_Offered': '10%', 'Funding_Amount': '$6,030', 'Key_Terms': 'The funding will be used to scale production, enhance product features, and drive marketing efforts. We expect to see significant returns on investment as the smart home market continues to grow.'}}","The startup has the following financial metrics:
-- Revenue: $50,000
-- Profit: $10,745
-- Is Profitable: Yes
-
-Estimated valuation: $60,301.
-Founders are asking for ~$6,030.",

@@ -7,31 +7,30 @@ from dotenv import load_dotenv
 
 import dspy
 from pydantic import BaseModel, Field
-from .utils import ValuationTools, InitialOffer, PitchResponse, extract_metrics
+from utils import ValuationTools, InitialOffer, PitchResponse, extract_metrics
+from data.training_loader import create_training_set, validate_training_examples
+from evaluators import llm_pitch_metric
 from tqdm import tqdm
 import pandas as pd
-
-# Optional MLflow import for tracking
-try:
-    import mlflow
-    MLFLOW_AVAILABLE = True
-except ImportError:
-    MLFLOW_AVAILABLE = False
+import mlflow
 
 # Load environment variables
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
 
-# Configure DSPy language model only if GROQ_API_KEY is available
-if GROQ_API_KEY:
-    lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
-    dspy.configure(lm=lm)
+# Configure DSPy language model
+lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
+dspy.configure(lm=lm)
 
-# Configure MLflow if available
-if MLFLOW_AVAILABLE and DATABRICKS_PATH:
-    mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM")
-    mlflow.dspy.autolog()
+
+mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM_PO")
+mlflow.dspy.autolog()
+
+"""
+This module is used to generate a pitch and initial offer for a given product with the addition of BootstrapFewShot optimization.
+
+"""
 
 
 # ---------- 1) DSPy SIGNATURES ----------
@@ -43,7 +42,7 @@ class FinancialsSig(dspy.Signature):
     profit: float = dspy.OutputField(desc="Annual profit in USD (can be negative).")
 
 class PitchSig(dspy.Signature):
-    """Draft an investor pitch and initial offer."""
+    """Generate a persuasive Shark Tank pitch and investment offer."""
     financial_summary: str = dspy.InputField()
     product_json: str = dspy.InputField(desc="Full JSON with product description and facts.")
     response: PitchResponse = dspy.OutputField(
@@ -111,12 +110,27 @@ class PitchProgram(dspy.Module):
             pred = self.draft(financial_summary=financial_summary,
                           product_json=json.dumps(product_data, indent=2))
 
+                        # Capture the prompt from the LM's history immediately after the call
+            prompt_str = "No prompt captured"
+            try:
+                if hasattr(dspy.settings, 'lm') and dspy.settings.lm:
+                    # Access the last history entry
+                    if hasattr(dspy.settings.lm, 'history') and dspy.settings.lm.history:
+                        history_entry = dspy.settings.lm.history[-1]
+                        if isinstance(history_entry, dict):
+                            prompt_str = history_entry.get('messages', history_entry)
+                        else:
+                            prompt_str = str(history_entry)
+            except Exception as e:
+                print(f"Error capturing prompt: {e}")
+
             return {
                 "is_profitable": is_profitable,
                 "valuation": valuation,
                 "funding_amount": funding_amount,
                 "response": pred.response,
                 "financial_summary": financial_summary,
+                "prompt": prompt_str,
                 "metrics": extract_metrics(pred) if hasattr(pred, 'metrics') else None
             }
         except Exception as e:
@@ -124,30 +138,38 @@ class PitchProgram(dspy.Module):
             return None
 
 # ---------- 4) OPTIMIZATION ----------
-def pitch_metric(example, pred, trace=None):
-    """Metric for evaluating pitch quality"""
-    try:
-        resp = pred["response"] if isinstance(pred, dict) else pred.response
-        offer = resp.Initial_Offer
-        ok = bool(resp.Pitch and offer.Valuation and offer.Equity_Offered and offer.Funding_Amount)
-        return ok
-    except Exception:
-        return False
+# Note: LLM-as-a-judge evaluation is now handled by the separated evaluators module
 
-def maybe_compile(program, train_examples=None, use_mipro=False):
+def maybe_compile(program, train_examples=None, use_mipro=False, enable_optimization=True, verbose=False):
     """Compile program with optimization if training examples provided"""
-    if not train_examples:
+    if not train_examples or not enable_optimization:
+        print("Skipping optimization - no training examples or optimization disabled")
         return program
+    
+    print(f"Starting optimization with {len(train_examples)} training examples...")
+    
+    # Create metric with verbose output for optimization
+    def verbose_metric(example, pred, trace=None):
+        return llm_pitch_metric(example, pred, trace, verbose=verbose)
+    
     if use_mipro:
-        opt = dspy.MIPROv2(metric=pitch_metric)
+        opt = dspy.MIPROv2(metric=verbose_metric)
     else:
-        opt = dspy.BootstrapFewShot(metric=pitch_metric)
-    return opt.compile(program, trainset=train_examples)
+        opt = dspy.BootstrapFewShot(metric=verbose_metric)
+    
+    try:
+        optimized_program = opt.compile(program, trainset=train_examples)
+        print("✓ Optimization completed successfully")
+        return optimized_program
+    except Exception as e:
+        print(f"✗ Optimization failed: {e}")
+        print("Falling back to non-optimized program")
+        return program
 
 # ---------- 5) MAIN EXECUTION ----------
 if __name__ == "__main__":
     # Fix file path
-    facts_path = Path("./src/agno_agents/data/outputs/facts_and_productdescriptions.json")
+    facts_path = Path("./src/agents/data/outputs/facts_and_productdescriptions.json")
     
     if not facts_path.exists():
         print(f"Error: File not found at {facts_path}")
@@ -157,9 +179,21 @@ if __name__ == "__main__":
     scenarios = list(facts_dict.keys())[:3]
     program = PitchProgram()
 
-    # Optional compilation
-    train_examples = None
-    program = maybe_compile(program, train_examples, use_mipro=False)
+    # Load training examples from PO_samples.json
+    print("Loading training examples from PO_samples.json...")
+    try:
+        train_examples = create_training_set("data/PO_samples.json")
+        if validate_training_examples(train_examples):
+            print(f"✓ Successfully loaded {len(train_examples)} training examples")
+        else:
+            print("✗ Training examples validation failed")
+            train_examples = None
+    except Exception as e:
+        print(f"✗ Failed to load training examples: {e}")
+        train_examples = None
+    
+    # Compile program with optimization (enable verbose output)
+    program = maybe_compile(program, train_examples, use_mipro=False, enable_optimization=True, verbose=True)
 
     rows = []
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -176,6 +210,18 @@ if __name__ == "__main__":
             continue
             
         resp = out["response"]
+        
+        # Evaluate the generated pitch with verbose output
+        print(f"\n🎯 EVALUATING PITCH FOR: {scenario}")
+        evaluation_score = llm_pitch_metric(
+            example={"product_data": product_data}, 
+            pred={"response": resp}, 
+            trace=None, 
+            verbose=True
+        )
+        
+        print(f"📊 Final Evaluation Score: {evaluation_score:.2f}")
+        print("-" * 50)
 
         rows.append({
             "scenario": scenario,
@@ -188,8 +234,9 @@ if __name__ == "__main__":
             "funding_amount": f"${out['funding_amount']:,.0f}",
             "is_profitable": out["is_profitable"],
             "response": resp.model_dump(),
-            "prompt": out["financial_summary"],
-            "metrics": out.get("metrics", {})
+            "prompt": out.get("prompt", "N/A"),
+            "metrics": out.get("metrics", {}),
+            "evaluation_score": evaluation_score
         })
 
     df = pd.DataFrame(rows)
