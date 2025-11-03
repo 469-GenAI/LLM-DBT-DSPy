@@ -18,12 +18,19 @@ from pydantic import BaseModel, Field
 from tqdm import tqdm
 import pandas as pd
 import mlflow
+import warnings
+import logging
 
 # Import local utilities
 from utils import PitchInput, format_pitch_input
 from data_loader import load_and_prepare_data
 from eval.AssessPitch import AssessPitchQuality
 from models import PitchGenerator, PitchEvaluator
+from models.generator import StructuredPitchProgram
+
+# Suppress MLflow trace ID collision warnings
+warnings.filterwarnings("ignore", message="Failed to send trace to MLflow backend")
+logging.getLogger("mlflow.tracing.export.mlflow_v3").setLevel(logging.ERROR)
 
 # Load environment variables
 load_dotenv()
