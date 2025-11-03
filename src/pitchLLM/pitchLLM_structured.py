@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
+import random
 
 import dspy
 from pydantic import BaseModel, Field
@@ -30,7 +31,8 @@ DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
 
 # comment out if you want to stop tracking
 if DATABRICKS_PATH:
-    mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM_structured")
+    run_name = f"pitchLLM_structured_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    mlflow.set_experiment(DATABRICKS_PATH + run_name)
     mlflow.dspy.autolog()
 else:
     print("No DATABRICKS_PATH found in .env")
@@ -48,6 +50,7 @@ dspy.configure(lm=generator_lm)
 # Rate limiting configuration for Groq (30 requests per minute limit)
 RATE_LIMIT_DELAY = 2.5  # Seconds between API calls (safe margin: 24 calls/min)
 
+DATASET_SHUFFLE_SEED = 42
 
 # ---------- 1) DSPy SIGNATURES ----------
 class PitchGenerationSig(dspy.Signature):
@@ -406,6 +409,10 @@ if __name__ == "__main__":
     data = load_and_prepare_data()
     trainset = data["train"]
     testset = data["test"]
+
+    # Shuffle with seed for reproducibility
+    random.seed(DATASET_SHUFFLE_SEED)
+    random.shuffle(trainset)
     
     # Limit sizes if requested
     if args.train_size:
@@ -467,7 +474,7 @@ if __name__ == "__main__":
         rows.append(row)
     
     df = pd.DataFrame(rows)
-    output_file = f"structured_pitch_results_{args.optimization}_{timestamp}.csv"
+    output_file = f"structured_pitch_results_{args.optimization}_{run_name}.csv"
     df.to_csv(output_file, index=False)
     
     print(f"\n✓ Results saved to: {output_file}")
