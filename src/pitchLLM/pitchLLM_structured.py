@@ -7,6 +7,7 @@ This implementation supports optimization via BootstrapFewShot and MIPROv2.
 """
 import os
 import json
+import time
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
@@ -25,9 +26,18 @@ from eval.AssessPitch import AssessPitchQuality
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Configure DSPy language model
-lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
-dspy.configure(lm=lm)
+# Configure DSPy language models
+# Generator: Llama 3.3 70B (fast, cost-effective for generation)
+generator_lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
+
+# Evaluator: GPT OSS 120B (more powerful, objective evaluation - different architecture)
+evaluator_lm = dspy.LM("groq/openai/gpt-oss-120b", model_type="chat", api_key=GROQ_API_KEY)
+
+# Set default LM to generator (for pitch generation and optimization)
+dspy.configure(lm=generator_lm)
+
+# Rate limiting configuration for Groq (30 requests per minute limit)
+RATE_LIMIT_DELAY = 2.5  # Seconds between API calls (safe margin: 24 calls/min)
 
 
 # ---------- 1) DSPy SIGNATURES ----------
@@ -93,10 +103,14 @@ class StructuredPitchProgram(dspy.Module):
 
 # ---------- 3) EVALUATION METRIC ----------
 class PitchEvaluator(dspy.Module):
-    """Module for evaluating pitch quality using AssessPitchQuality signature."""
+    """
+    Module for evaluating pitch quality using AssessPitchQuality signature.
+    Uses GPT-OSS-120B for objective, powerful evaluation (different from 70B generator).
+    """
     
     def __init__(self):
         super().__init__()
+        # Initialize without passing lm parameter
         self.assess = dspy.ChainOfThought(AssessPitchQuality)
     
     def forward(self, pitch_facts: str, ground_truth_pitch: str, generated_pitch: str):
@@ -110,12 +124,15 @@ class PitchEvaluator(dspy.Module):
             
         Returns:
             Assessment with scores
+        Assess the quality of a generated pitch using GPT-OSS-120B.
         """
-        assessment = self.assess(
-            pitch_facts=pitch_facts,
-            ground_truth_pitch=ground_truth_pitch,
-            generated_pitch=generated_pitch
-        )
+        # Use context manager to temporarily switch to evaluator model
+        with dspy.context(lm=evaluator_lm):
+            assessment = self.assess(
+                pitch_facts=pitch_facts,
+                ground_truth_pitch=ground_truth_pitch,
+                generated_pitch=generated_pitch
+            )
         return assessment
 
 
@@ -242,28 +259,38 @@ def compile_program(
 
 
 # ---------- 5) EVALUATION ----------
-def evaluate_program(program, testset, use_evaluator=False):
+def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
     """
-    Evaluate the program on a test set.
+    Evaluate the program on a test set with rate limiting.
     
     Args:
         program: The program to evaluate
         testset: List of test examples
         use_evaluator: Whether to use detailed AssessPitch evaluation
+        rate_limit: Whether to enforce rate limiting (default: True for Groq)
         
     Returns:
         List of results with predictions and scores
+        
+    Note:
+        With rate limiting enabled, respects Groq's 30 requests/min limit.
+        Each example makes 2 API calls (generation + evaluation), so we process
+        ~12 examples per minute safely.
     """
     results = []
     evaluator = PitchEvaluator() if use_evaluator else None
     
-    for example in tqdm(testset, desc="Evaluating", unit="pitch"):
+    for idx, example in enumerate(tqdm(testset, desc="Evaluating", unit="pitch")):
         try:
-            # Generate pitch
+            # Generate pitch (uses generator_lm: 70B)
             prediction = program(input=example.input)
             generated_pitch = prediction.pitch if hasattr(prediction, "pitch") else str(prediction)
             
-            # Evaluate if requested
+            # Rate limiting after generation
+            if rate_limit and idx < len(testset) - 1:
+                time.sleep(RATE_LIMIT_DELAY)
+            
+            # Evaluate if requested (uses evaluator_lm: 120B)
             if use_evaluator:
                 pitch_facts = json.dumps(example.input, indent=2)
                 assessment = evaluator(
@@ -276,6 +303,10 @@ def evaluate_program(program, testset, use_evaluator=False):
                     assessment_data = json.loads(assessment.pitch_assessment)
                 except (json.JSONDecodeError, AttributeError):
                     assessment_data = {"final_score": 0.0, "reasoning": "Parse error"}
+                
+                # Rate limiting after evaluation
+                if rate_limit and idx < len(testset) - 1:
+                    time.sleep(RATE_LIMIT_DELAY)
             else:
                 assessment_data = None
             
@@ -288,7 +319,7 @@ def evaluate_program(program, testset, use_evaluator=False):
             })
             
         except Exception as e:
-            print(f"Error processing example {example.id}: {e}")
+            print(f"\nError processing example {example.id}: {e}")
             results.append({
                 "id": example.id,
                 "input": example.input,
@@ -327,7 +358,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--evaluate",
         action="store_true",
-        help="Use detailed AssessPitch evaluation"
+        help="Use detailed AssessPitch evaluation with GPT-OSS-120B"
+    )
+    parser.add_argument(
+        "--no-rate-limit",
+        action="store_true",
+        help="Disable rate limiting (use with caution - may hit API limits)"
     )
     
     args = parser.parse_args()
@@ -369,7 +405,10 @@ if __name__ == "__main__":
     
     # Evaluate on test set
     print("\n4. Evaluating on test set...")
-    results = evaluate_program(program, testset, use_evaluator=args.evaluate)
+    if not args.no_rate_limit:
+        print(f"   Rate limiting enabled: {RATE_LIMIT_DELAY}s delay between API calls")
+        print(f"   Estimated time: ~{len(testset) * RATE_LIMIT_DELAY * (2 if args.evaluate else 1) / 60:.1f} minutes")
+    results = evaluate_program(program, testset, use_evaluator=args.evaluate, rate_limit=not args.no_rate_limit)
     
     # Save results
     print("\n5. Saving results...")
@@ -384,7 +423,8 @@ if __name__ == "__main__":
             "ground_truth": result["ground_truth"],
             "generated_pitch": result["generated_pitch"],
             "optimization_method": args.optimization,
-            "model_name": lm.model,
+            "model_name": generator_lm.model,
+            "evaluator_model_name": evaluator_lm.model,
             "timestamp": timestamp
         }
         
@@ -408,10 +448,14 @@ if __name__ == "__main__":
         print("\n" + "=" * 80)
         print("EVALUATION SUMMARY")
         print("=" * 80)
-        print(f"Average Final Score: {df['final_score'].mean():.3f}")
-        print(f"Average Factual Score: {df['factual_score'].mean():.3f}")
-        print(f"Average Narrative Score: {df['narrative_score'].mean():.3f}")
-        print(f"Average Style Score: {df['style_score'].mean():.3f}")
+        print(f"Generator Model: groq/llama-3.3-70b-versatile")
+        print(f"Evaluator Model: groq/openai/gpt-oss-120b")
+        print(f"Optimization Method: {args.optimization}")
+        print(f"\nScores (0.0-1.0):")
+        print(f"  Average Final Score: {df['final_score'].mean():.3f} ± {df['final_score'].std():.3f}")
+        print(f"  Average Factual Score: {df['factual_score'].mean():.3f} ± {df['factual_score'].std():.3f}")
+        print(f"  Average Narrative Score: {df['narrative_score'].mean():.3f} ± {df['narrative_score'].std():.3f}")
+        print(f"  Average Style Score: {df['style_score'].mean():.3f} ± {df['style_score'].std():.3f}")
     
     print("\n✓ Done!")
 
