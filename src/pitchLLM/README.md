@@ -58,7 +58,7 @@ python pitchLLM_structured.py --optimization none --test-size 5
 Compile the program with few-shot learning:
 
 ```bash
-python pitchLLM_structured.py --optimization bootstrap --train-size 20 --test-size 10
+python pitchLLM_structured.py --optimization bootstrap --train-size 20 --test-size 10 --save-program
 ```
 
 ### 3. MIPROv2 Optimization
@@ -66,7 +66,7 @@ python pitchLLM_structured.py --optimization bootstrap --train-size 20 --test-si
 Compile with instruction optimization:
 
 ```bash
-python pitchLLM_structured.py --optimization mipro --train-size 30 --test-size 10
+python pitchLLM_structured.py --optimization mipro --train-size 30 --test-size 10 --save-program
 ```
 
 ### 4. With Detailed Evaluation
@@ -74,7 +74,7 @@ python pitchLLM_structured.py --optimization mipro --train-size 30 --test-size 1
 Add the `--evaluate` flag to use the AssessPitch evaluator:
 
 ```bash
-python pitchLLM_structured.py --optimization bootstrap --test-size 5 --evaluate
+python pitchLLM_structured.py --optimization bootstrap --test-size 5 --evaluate --save-program
 ```
 
 ## Command Line Arguments

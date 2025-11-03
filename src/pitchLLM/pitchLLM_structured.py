@@ -436,6 +436,12 @@ if __name__ == "__main__":
             optimization_method=args.optimization,
             metric=simple_pitch_metric
         )
+        if args.save_program:
+            save_dir = "optimized_programs"
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = f"{save_dir}/pitch_{args.optimization}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            program.save(save_path)
+            print(f"   ✓ Saved optimized program to: {save_path}")
     else:
         print("\n3. Running baseline (no optimization)...")
     
