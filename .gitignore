@@ -1,14 +1,62 @@
+# Environment variables
 .env
+
+# Python cache
 *.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database files
 *.db
+*.sqlite3
+chromadb_data/
+
+# DeepEval
 .deepeval*
+
+# Test data
 */test_data/*
 
+# Binary files
 *.bin
-# *.json
-*.DS_store
-*.sqlite3
+
+# Data files (but allow specific ones we need)
+*.json
+!ganwang/all_processed_facts.json
+!src/agno_agents/data/**/*.json
+
+# OS files
+*.DS_Store
+.DS_store
+
+# Test files
 src/test.py
 
-
+# Bin directories
 */bin
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Output directories
+outputs/
+optimized_models/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
