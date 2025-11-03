@@ -18,11 +18,19 @@ from pydantic import BaseModel, Field
 from tqdm import tqdm
 import pandas as pd
 import mlflow
+import warnings
+import logging
 
 # Import local utilities
 from utils import PitchInput, format_pitch_input
 from data_loader import load_and_prepare_data
 from eval.AssessPitch import AssessPitchQuality
+from models import PitchGenerator, PitchEvaluator
+from models.generator import StructuredPitchProgram
+
+# Suppress MLflow trace ID collision warnings
+warnings.filterwarnings("ignore", message="Failed to send trace to MLflow backend")
+logging.getLogger("mlflow.tracing.export.mlflow_v3").setLevel(logging.ERROR)
 
 # Load environment variables
 load_dotenv()
@@ -33,7 +41,11 @@ DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
 if DATABRICKS_PATH:
     run_name = f"pitchLLM_structured_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     mlflow.set_experiment(DATABRICKS_PATH + run_name)
-    mlflow.dspy.autolog()
+    mlflow.dspy.autolog(
+        log_compiles=True,    # Track optimization process
+        log_evals=True,       # Track evaluation results
+        log_traces_from_compile=True  # Track program traces during optimization
+    )
 else:
     print("No DATABRICKS_PATH found in .env")
 
@@ -52,104 +64,25 @@ RATE_LIMIT_DELAY = 2.5  # Seconds between API calls (safe margin: 24 calls/min)
 
 DATASET_SHUFFLE_SEED = 42
 
-# ---------- 1) DSPy SIGNATURES ----------
-class PitchGenerationSig(dspy.Signature):
-    """
-    Generate a compelling Shark Tank pitch from structured input.
-    
-    The pitch should:
-    - Start with an engaging introduction of the founders and company
-    - Present the investment ask clearly
-    - Tell a story about the problem from the customer's perspective
-    - Introduce the solution with compelling details
-    - End with a strong call to action for the Sharks
-    """
-    
-    pitch_data: str = dspy.InputField(
-        desc="Structured pitch data including company, founders, problem story, solution, and investment ask"
-    )
-    
-    pitch: str = dspy.OutputField(
-        desc="A compelling, narrative pitch in the style of Shark Tank presentations. "
-             "Should be conversational, engaging, and tell a complete story from problem to solution."
-    )
+# ---------- 1) MODEL INSTANCES ----------
+# Note: PitchGenerator and PitchEvaluator are now in models/ package
+# This provides clear separation between generator and evaluator models
 
+# Create global evaluator instance for metrics
+_global_evaluator = None
 
-# ---------- 2) DSPy MODULE ----------
-class StructuredPitchProgram(dspy.Module):
-    """
-    Main DSPy module for generating structured pitches.
-    
-    Takes structured pitch input and generates a narrative pitch string
-    using chain-of-thought reasoning.
-    """
-    
-    def __init__(self):
-        super().__init__()
-        self.generate_pitch = dspy.ChainOfThought(PitchGenerationSig)
-    
-    def forward(self, input: dict):
-        """
-        Generate a pitch from structured input.
-        
-        Args:
-            input: Dictionary containing structured pitch data (from HF dataset)
-            
-        Returns:
-            dspy.Prediction with pitch field
-        """
-        # Convert the input dict to PitchInput model for validation and formatting
-        try:
-            pitch_input = PitchInput(**input)
-            formatted_input = format_pitch_input(pitch_input)
-        except Exception as e:
-            print(f"Warning: Could not parse input as PitchInput: {e}")
-            # Fallback: use JSON representation
-            formatted_input = json.dumps(input, indent=2)
-        
-        # Generate the pitch using chain-of-thought
-        prediction = self.generate_pitch(pitch_data=formatted_input)
-        
-        return prediction
-
-
-# ---------- 3) EVALUATION METRIC ----------
-class PitchEvaluator(dspy.Module):
-    """
-    Module for evaluating pitch quality using AssessPitchQuality signature.
-    Uses GPT-OSS-120B for objective, powerful evaluation (different from 70B generator).
-    """
-    
-    def __init__(self):
-        super().__init__()
-        # Initialize without passing lm parameter
-        self.assess = dspy.ChainOfThought(AssessPitchQuality)
-    
-    def forward(self, pitch_facts: str, ground_truth_pitch: str, generated_pitch: str):
-        """
-        Assess the quality of a generated pitch using GPT-OSS-120B.
-        
-        Args:
-            pitch_facts: The structured facts the pitch was based on
-            ground_truth_pitch: The gold-standard human-written pitch
-            generated_pitch: The AI-generated pitch
-            
-        Returns:
-            Assessment with Pydantic PitchAssessment model (scores + reasoning)
-        """
-        # Use context manager to temporarily switch to evaluator model
-        with dspy.context(lm=evaluator_lm):
-            assessment = self.assess(
-                pitch_facts=pitch_facts,
-                ground_truth_pitch=ground_truth_pitch,
-                generated_pitch=generated_pitch
-            )
-        return assessment
+def get_evaluator():
+    """Get or create global evaluator instance."""
+    global _global_evaluator
+    if _global_evaluator is None:
+        _global_evaluator = PitchEvaluator(evaluator_lm)
+    return _global_evaluator
 
 
 def pitch_quality_metric(example, pred, trace=None):
     """
     Metric function for evaluating pitch quality during optimization.
+    Uses the evaluator model for objective assessment.
     
     Args:
         example: DSPy Example with input and output (ground truth)
@@ -170,22 +103,14 @@ def pitch_quality_metric(example, pred, trace=None):
         pitch_facts = json.dumps(example.input, indent=2)
         
         # Use the evaluator to assess quality
-        evaluator = PitchEvaluator()
-        assessment = evaluator(
+        evaluator = get_evaluator()
+        final_score = evaluator.get_score(
             pitch_facts=pitch_facts,
             ground_truth_pitch=ground_truth,
             generated_pitch=generated_pitch
         )
         
-        # Extract final score from Pydantic assessment
-        try:
-            # assessment.assessment is a PitchAssessment Pydantic model
-            final_score = float(assessment.assessment.final_score)
-            return final_score
-        except (AttributeError, ValueError) as e:
-            print(f"Warning: Could not extract final score: {e}")
-            # Fallback: basic comparison
-            return 0.5 if generated_pitch else 0.0
+        return final_score
             
     except Exception as e:
         print(f"Error in pitch_quality_metric: {e}")
@@ -253,13 +178,13 @@ def compile_program(
         print("Compiling with MIPROv2...")
         optimizer = dspy.MIPROv2(
             metric=metric,
-            num_candidates=10,
+            # num_candidates=10,
             init_temperature=1.0
         )
         compiled_program = optimizer.compile(
             program,
             trainset=trainset,
-            num_trials=10,
+            # num_trials=10,
             max_bootstrapped_demos=4,
             max_labeled_demos=4
         )
@@ -289,46 +214,31 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
         ~12 examples per minute safely.
     """
     results = []
-    evaluator = PitchEvaluator() if use_evaluator else None
+    # Create dedicated evaluator
+    evaluator = PitchEvaluator(evaluator_lm) if use_evaluator else None
+    
+    # Create dedicated generator
+    generator = PitchGenerator(generator_lm)
     
     for idx, example in enumerate(tqdm(testset, desc="Evaluating", unit="pitch")):
         try:
-            # Generate pitch (uses generator_lm: 70B)
-            prediction = program(input=example.input)
+            # Generate pitch using dedicated generator model
+            prediction = generator.generate(example.input)
             generated_pitch = prediction.pitch if hasattr(prediction, "pitch") else str(prediction)
             
             # Rate limiting after generation
             if rate_limit and idx < len(testset) - 1:
                 time.sleep(RATE_LIMIT_DELAY)
             
-            # Evaluate if requested (uses evaluator_lm: 120B)
+            # Evaluate if requested using dedicated evaluator model
             if use_evaluator:
                 pitch_facts = json.dumps(example.input, indent=2)
-                assessment = evaluator(
+                # Use convenience method that returns dict directly
+                assessment_data = evaluator.get_full_assessment(
                     pitch_facts=pitch_facts,
                     ground_truth_pitch=example.output,
                     generated_pitch=generated_pitch
                 )
-                
-                try:
-                    # assessment.assessment is a Pydantic PitchAssessment model
-                    pitch_assessment = assessment.assessment
-                    assessment_data = {
-                        "factual_score": float(pitch_assessment.factual_score),
-                        "narrative_score": float(pitch_assessment.narrative_score),
-                        "style_score": float(pitch_assessment.style_score),
-                        "reasoning": str(pitch_assessment.reasoning),
-                        "final_score": float(pitch_assessment.final_score)
-                    }
-                except (AttributeError, ValueError, TypeError) as e:
-                    print(f"\n  Warning: Failed to extract assessment: {e}")
-                    assessment_data = {
-                        "factual_score": 0.0,
-                        "narrative_score": 0.0,
-                        "style_score": 0.0,
-                        "reasoning": f"Parse error: {str(e)}",
-                        "final_score": 0.0
-                    }
                 
                 # Rate limiting after evaluation
                 if rate_limit and idx < len(testset) - 1:
@@ -393,6 +303,11 @@ if __name__ == "__main__":
         help="Use detailed AssessPitch evaluation with GPT-OSS-120B"
     )
     parser.add_argument(
+    "--save-program",
+    action="store_true",
+    help="Save the optimized program after compilation"
+    )
+    parser.add_argument(
         "--no-rate-limit",
         action="store_true",
         help="Disable rate limiting (use with caution - may hit API limits)"
@@ -423,9 +338,10 @@ if __name__ == "__main__":
         testset = testset[:args.test_size]
         print(f"   Using {len(testset)} test examples")
     
-    # Create program
+    # Create program using dedicated generator
     print("\n2. Creating pitch generation program...")
-    program = StructuredPitchProgram()
+    generator = PitchGenerator(generator_lm)
+    program = generator.program  # Get the underlying DSPy module for optimization
     
     # Compile with optimization if requested
     if args.optimization != "none":
@@ -434,7 +350,8 @@ if __name__ == "__main__":
             program,
             trainset,
             optimization_method=args.optimization,
-            metric=simple_pitch_metric
+            # metric=simple_pitch_metric # for testing
+            metric=pitch_quality_metric # for evaluation
         )
         if args.save_program:
             save_dir = "optimized_programs"
