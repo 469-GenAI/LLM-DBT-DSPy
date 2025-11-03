@@ -30,7 +30,7 @@ DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
 
 # comment out if you want to stop tracking
 if DATABRICKS_PATH:
-    mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM")
+    mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM_structured")
     mlflow.dspy.autolog()
 else:
     print("No DATABRICKS_PATH found in .env")
