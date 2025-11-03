@@ -115,7 +115,7 @@ class PitchEvaluator(dspy.Module):
     
     def forward(self, pitch_facts: str, ground_truth_pitch: str, generated_pitch: str):
         """
-        Assess the quality of a generated pitch.
+        Assess the quality of a generated pitch using GPT-OSS-120B.
         
         Args:
             pitch_facts: The structured facts the pitch was based on
@@ -123,8 +123,7 @@ class PitchEvaluator(dspy.Module):
             generated_pitch: The AI-generated pitch
             
         Returns:
-            Assessment with scores
-        Assess the quality of a generated pitch using GPT-OSS-120B.
+            Assessment with Pydantic PitchAssessment model (scores + reasoning)
         """
         # Use context manager to temporarily switch to evaluator model
         with dspy.context(lm=evaluator_lm):
@@ -166,13 +165,13 @@ def pitch_quality_metric(example, pred, trace=None):
             generated_pitch=generated_pitch
         )
         
-        # Parse the assessment JSON to get the final score
+        # Extract final score from Pydantic assessment
         try:
-            assessment_data = json.loads(assessment.pitch_assessment)
-            final_score = float(assessment_data.get("final_score", 0.0))
+            # assessment.assessment is a PitchAssessment Pydantic model
+            final_score = float(assessment.assessment.final_score)
             return final_score
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            print(f"Warning: Could not parse assessment: {e}")
+        except (AttributeError, ValueError) as e:
+            print(f"Warning: Could not extract final score: {e}")
             # Fallback: basic comparison
             return 0.5 if generated_pitch else 0.0
             
@@ -300,9 +299,24 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
                 )
                 
                 try:
-                    assessment_data = json.loads(assessment.pitch_assessment)
-                except (json.JSONDecodeError, AttributeError):
-                    assessment_data = {"final_score": 0.0, "reasoning": "Parse error"}
+                    # assessment.assessment is a Pydantic PitchAssessment model
+                    pitch_assessment = assessment.assessment
+                    assessment_data = {
+                        "factual_score": float(pitch_assessment.factual_score),
+                        "narrative_score": float(pitch_assessment.narrative_score),
+                        "style_score": float(pitch_assessment.style_score),
+                        "reasoning": str(pitch_assessment.reasoning),
+                        "final_score": float(pitch_assessment.final_score)
+                    }
+                except (AttributeError, ValueError, TypeError) as e:
+                    print(f"\n  Warning: Failed to extract assessment: {e}")
+                    assessment_data = {
+                        "factual_score": 0.0,
+                        "narrative_score": 0.0,
+                        "style_score": 0.0,
+                        "reasoning": f"Parse error: {str(e)}",
+                        "final_score": 0.0
+                    }
                 
                 # Rate limiting after evaluation
                 if rate_limit and idx < len(testset) - 1:
@@ -325,7 +339,13 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
                 "input": example.input,
                 "ground_truth": example.output,
                 "generated_pitch": "",
-                "assessment": {"final_score": 0.0, "reasoning": f"Error: {str(e)}"}
+                "assessment": {
+                    "factual_score": 0.0,
+                    "narrative_score": 0.0,
+                    "style_score": 0.0,
+                    "reasoning": f"Error: {str(e)}",
+                    "final_score": 0.0
+                }
             })
     
     return results
