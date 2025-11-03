@@ -74,7 +74,7 @@ python pitchLLM_structured.py --optimization mipro --train-size 30 --test-size 1
 Add the `--evaluate` flag to use the AssessPitch evaluator:
 
 ```bash
-python pitchLLM_structured.py --optimization bootstrap --test-size 5 --evaluate --save-program
+python pitchLLM_structured.py --optimization bootstrap --test-size 5 --evaluate --save-program --save-program
 ```
 
 ## Command Line Arguments
@@ -242,10 +242,10 @@ The evaluation uses **GPT-OSS-120B** (different from the 70B generator) for:
 python pitchLLM_structured.py --optimization none --test-size 3
 
 # 2. Optimize with BootstrapFewShot
-python pitchLLM_structured.py --optimization bootstrap --train-size 50 --test-size 10 --evaluate
+python pitchLLM_structured.py --optimization bootstrap --train-size 50 --test-size 10 --evaluate --save-program
 
 # 3. Full evaluation with MIPRO
-python pitchLLM_structured.py --optimization mipro --train-size 100 --test-size 50 --evaluate
+python pitchLLM_structured.py --optimization mipro --train-size 100 --test-size 50 --evaluate --save-program
 ```
 
 ## Troubleshooting
