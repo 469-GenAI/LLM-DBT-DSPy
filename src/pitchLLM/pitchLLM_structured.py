@@ -16,6 +16,7 @@ import dspy
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 import pandas as pd
+import mlflow
 
 # Import local utilities
 from utils import PitchInput, format_pitch_input
@@ -25,6 +26,14 @@ from eval.AssessPitch import AssessPitchQuality
 # Load environment variables
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
+
+# comment out if you want to stop tracking
+if DATABRICKS_PATH:
+    mlflow.set_experiment(DATABRICKS_PATH + "pitchLLM")
+    mlflow.dspy.autolog()
+else:
+    print("No DATABRICKS_PATH found in .env")
 
 # Configure DSPy language models
 # Generator: Llama 3.3 70B (fast, cost-effective for generation)
