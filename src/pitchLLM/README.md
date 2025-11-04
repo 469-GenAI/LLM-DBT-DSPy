@@ -74,7 +74,7 @@ python pitchLLM_structured.py --optimization mipro --train-size 30 --test-size 1
 Add the `--evaluate` flag to use the AssessPitch evaluator:
 
 ```bash
-python pitchLLM_structured.py --optimization bootstrap --test-size 5 --evaluate --save-program --save-program
+python pitchLLM_structured.py --optimization bootstrap --test-size 5 --evaluate --save-program
 ```
 
 ## Command Line Arguments
