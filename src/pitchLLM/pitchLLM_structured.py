@@ -3,7 +3,11 @@
 DSPy-based pitch generation system that takes structured input and generates
 narrative pitches similar to Shark Tank pitches.
 
-This implementation supports optimization via BootstrapFewShot and MIPROv2.
+This implementation supports optimization via:
+- BootstrapFewShot: Standard few-shot learning with bootstrapped demonstrations
+- BootstrapFewShotWithRandomSearch: Random search over bootstrapped demonstrations
+- KNNFewShot: K-Nearest Neighbors for finding relevant training examples
+- MIPROv2: Multi-stage instruction/prompt optimization
 """
 import os
 import json
@@ -151,7 +155,7 @@ def compile_program(
     Args:
         program: The StructuredPitchProgram to optimize
         trainset: Training examples
-        optimization_method: "none", "bootstrap", or "mipro"
+        optimization_method: "none", "bootstrap", "bootstrap_random", "knn", or "mipro"
         metric: Evaluation metric function
         
     Returns:
@@ -173,7 +177,28 @@ def compile_program(
         )
         compiled_program = optimizer.compile(program, trainset=trainset)
         return compiled_program
+
+    elif optimization_method == "bootstrap_random":
+        print("Compiling with BootstrapFewShotWithRandomSearch...")
+        optimizer = dspy.BootstrapFewShotWithRandomSearch(
+            metric=metric,
+            max_bootstrapped_demos=4,
+            max_labeled_demos=4,
+            num_candidate_programs=10  # Number of random programs to evaluate
+        )
+        compiled_program = optimizer.compile(program, trainset=trainset)
+        return compiled_program
     
+    elif optimization_method == "knn":
+        print("Compiling with KNNFewShot...")
+        optimizer = dspy.KNNFewShot(
+            k=3,  # Number of nearest neighbors to use
+            trainset=trainset
+        )
+        # KNNFewShot works differently - it wraps the program
+        compiled_program = optimizer.compile(program, trainset=trainset)
+        return compiled_program
+
     elif optimization_method == "mipro":
         print("Compiling with MIPROv2...")
         optimizer = dspy.MIPROv2(
@@ -282,7 +307,7 @@ if __name__ == "__main__":
         "--optimization",
         type=str,
         default="none",
-        choices=["none", "bootstrap", "mipro"],
+        choices=["none", "bootstrap", "bootstrap_random", "knn", "mipro"],
         help="Optimization method to use"
     )
     parser.add_argument(
