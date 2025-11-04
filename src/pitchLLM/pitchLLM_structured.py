@@ -26,7 +26,15 @@ import warnings
 import logging
 
 # Import local utilities
-from utils import PitchInput, format_pitch_input
+from utils import (
+    PitchInput,
+    format_pitch_input,
+    capture_mlflow_run_id,
+    save_program_with_metadata,
+    results_to_dataframe,
+    save_results_csv,
+    print_evaluation_summary
+)
 from data_loader import load_and_prepare_data
 from eval.AssessPitch import AssessPitchQuality
 from models import PitchGenerator, PitchEvaluator
@@ -378,72 +386,24 @@ if __name__ == "__main__":
             # metric=simple_pitch_metric # for testing
             metric=pitch_quality_metric # for evaluation
         )
-        # Capture MLflow run_id if available (after autolog starts the run)
-        mlflow_run_id = None
-        if DATABRICKS_PATH:
-            try:
-                # First try active_run
-                current_run = mlflow.active_run()
-                if current_run:
-                    mlflow_run_id = current_run.info.run_id
-                else:
-                    # Fall back to searching for the most recent run in this experiment
-                    experiment = mlflow.get_experiment_by_name(DATABRICKS_PATH + run_name)
-                    if experiment:
-                        runs = mlflow.search_runs(
-                            experiment_ids=[experiment.experiment_id],
-                            max_results=1,
-                            order_by=["start_time DESC"]
-                        )
-                        if not runs.empty:
-                            mlflow_run_id = runs.iloc[0]["run_id"]
-                
-                if mlflow_run_id:
-                    print(f"   ✓ MLflow Run ID: {mlflow_run_id}")
-            except Exception as e:
-                print(f"   ⚠ Could not capture MLflow run_id: {e}")
+        
+        # Capture MLflow run_id (refactored)
+        mlflow_run_id = capture_mlflow_run_id(DATABRICKS_PATH, run_name)
+        # mlflow_run_id = None
+        
+        # Save program with metadata (refactored)
         if args.save_program:
-            save_dir = "optimized_programs"
-            os.makedirs(save_dir, exist_ok=True)
-            save_path = f"{save_dir}/pitch_{args.optimization}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            program.save(save_path)
-            # Add model metadata to the saved file
-            with open(save_path, "r") as f:
-                saved_data = json.load(f)
-            
-            # Add model information to metadata
-            if "metadata" not in saved_data:
-                saved_data["metadata"] = {}
-            
-            saved_data["metadata"]["models_used"] = {
-                "generator": generator_lm.model,
-                "evaluator": evaluator_lm.model,
-                "optimization_method": args.optimization
-            }
-            
-            saved_data["metadata"]["training_info"] = {
-                "train_size": len(trainset),
-                "test_size": len(testset),
-                "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S")
-            }
-                        # Add tracking info (MLflow run_id and CSV filename reference)
-            csv_filename = f"structured_pitch_results_{args.optimization}_{run_name}"
-            if mlflow_run_id:
-                csv_filename += f"_{mlflow_run_id[:8]}"  # Add first 8 chars of run_id
-            csv_filename += ".csv"
-            
-            saved_data["metadata"]["tracking"] = {
-                "mlflow_run_id": mlflow_run_id,
-                "results_csv_file": csv_filename,
-                "run_name": run_name
-            }
-            
-            # Save back with metadata
-            with open(save_path, "w") as f:
-                json.dump(saved_data, f, indent=2)
-            
-            print(f"   ✓ Saved optimized program to: {save_path}")
-            print(f"   ✓ Model info: {generator_lm.model}")
+            save_program_with_metadata(
+                program=program,
+                save_dir="optimized_programs",
+                optimization_method=args.optimization,
+                generator_model=generator_lm.model,
+                evaluator_model=evaluator_lm.model,
+                trainset_size=len(trainset),
+                testset_size=len(testset),
+                run_name=run_name,
+                mlflow_run_id=mlflow_run_id
+            )
     else:
         print("\n3. Running baseline (no optimization)...")
         # For baseline, no MLflow run
@@ -456,60 +416,30 @@ if __name__ == "__main__":
         print(f"   Estimated time: ~{len(testset) * RATE_LIMIT_DELAY * (2 if args.evaluate else 1) / 60:.1f} minutes")
     results = evaluate_program(program, testset, use_evaluator=args.evaluate, rate_limit=not args.no_rate_limit)
     
-    # Save results
+    # Save results (refactored)
     print("\n5. Saving results...")
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    df = results_to_dataframe(
+        results=results,
+        optimization_method=args.optimization,
+        generator_model=generator_lm.model,
+        evaluator_model=evaluator_lm.model
+    )
     
-    # Create results dataframe
-    rows = []
-    for result in results:
-        row = {
-            "id": result["id"],
-            "company_name": result["input"].get("company_name", "Unknown"),
-            "ground_truth": result["ground_truth"],
-            "generated_pitch": result["generated_pitch"],
-            "optimization_method": args.optimization,
-            "model_name": generator_lm.model,
-            "evaluator_model_name": evaluator_lm.model,
-            "timestamp": timestamp
-        }
-        
-        if result["assessment"]:
-            row["final_score"] = result["assessment"].get("final_score", 0.0)
-            row["factual_score"] = result["assessment"].get("factual_score", 0.0)
-            row["narrative_score"] = result["assessment"].get("narrative_score", 0.0)
-            row["style_score"] = result["assessment"].get("style_score", 0.0)
-            row["reasoning"] = result["assessment"].get("reasoning", "")
-        
-        rows.append(row)
+    save_results_csv(
+        df=df,
+        optimization_method=args.optimization,
+        run_name=run_name,
+        mlflow_run_id=mlflow_run_id
+    )
     
-    df = pd.DataFrame(rows)
-
-    # Create CSV filename with run_id for easy matching
-    output_file = f"structured_pitch_results_{args.optimization}_{run_name}"
-    if mlflow_run_id:
-        output_file += f"_{mlflow_run_id[:8]}"  # Add first 8 chars of run_id
-    output_file += ".csv"
-
-    df.to_csv(output_file, index=False)
-    
-    print(f"\n✓ Results saved to: {output_file}")
-    if mlflow_run_id:
-        print(f"✓ MLflow Run ID: {mlflow_run_id}")
-    
-    # Print summary statistics
-    if args.evaluate and "final_score" in df.columns:
-        print("\n" + "=" * 80)
-        print("EVALUATION SUMMARY")
-        print("=" * 80)
-        print(f"Generator Model: groq/llama-3.3-70b-versatile")
-        print(f"Evaluator Model: groq/openai/gpt-oss-120b")
-        print(f"Optimization Method: {args.optimization}")
-        print(f"\nScores (0.0-1.0):")
-        print(f"  Average Final Score: {df['final_score'].mean():.3f} ± {df['final_score'].std():.3f}")
-        print(f"  Average Factual Score: {df['factual_score'].mean():.3f} ± {df['factual_score'].std():.3f}")
-        print(f"  Average Narrative Score: {df['narrative_score'].mean():.3f} ± {df['narrative_score'].std():.3f}")
-        print(f"  Average Style Score: {df['style_score'].mean():.3f} ± {df['style_score'].std():.3f}")
+    # Print summary statistics (refactored)
+    if args.evaluate:
+        print_evaluation_summary(
+            df=df,
+            generator_model=generator_lm.model,
+            evaluator_model=evaluator_lm.model,
+            optimization_method=args.optimization
+        )
     
     print("\n✓ Done!")
 
