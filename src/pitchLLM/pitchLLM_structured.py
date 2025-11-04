@@ -3,7 +3,11 @@
 DSPy-based pitch generation system that takes structured input and generates
 narrative pitches similar to Shark Tank pitches.
 
-This implementation supports optimization via BootstrapFewShot and MIPROv2.
+This implementation supports optimization via:
+- BootstrapFewShot: Standard few-shot learning with bootstrapped demonstrations
+- BootstrapFewShotWithRandomSearch: Random search over bootstrapped demonstrations
+- KNNFewShot: K-Nearest Neighbors for finding relevant training examples
+- MIPROv2: Multi-stage instruction/prompt optimization
 """
 import os
 import json
@@ -22,7 +26,15 @@ import warnings
 import logging
 
 # Import local utilities
-from utils import PitchInput, format_pitch_input
+from utils import (
+    PitchInput,
+    format_pitch_input,
+    capture_mlflow_run_id,
+    save_program_with_metadata,
+    results_to_dataframe,
+    save_results_csv,
+    print_evaluation_summary
+)
 from data_loader import load_and_prepare_data
 from eval.AssessPitch import AssessPitchQuality
 from models import PitchGenerator, PitchEvaluator
@@ -151,7 +163,7 @@ def compile_program(
     Args:
         program: The StructuredPitchProgram to optimize
         trainset: Training examples
-        optimization_method: "none", "bootstrap", or "mipro"
+        optimization_method: "none", "bootstrap", "bootstrap_random", "knn", or "mipro"
         metric: Evaluation metric function
         
     Returns:
@@ -173,7 +185,28 @@ def compile_program(
         )
         compiled_program = optimizer.compile(program, trainset=trainset)
         return compiled_program
+
+    elif optimization_method == "bootstrap_random":
+        print("Compiling with BootstrapFewShotWithRandomSearch...")
+        optimizer = dspy.BootstrapFewShotWithRandomSearch(
+            metric=metric,
+            max_bootstrapped_demos=4,
+            max_labeled_demos=4,
+            num_candidate_programs=10  # Number of random programs to evaluate
+        )
+        compiled_program = optimizer.compile(program, trainset=trainset)
+        return compiled_program
     
+    elif optimization_method == "knn":
+        print("Compiling with KNNFewShot...")
+        optimizer = dspy.KNNFewShot(
+            k=3,  # Number of nearest neighbors to use
+            trainset=trainset
+        )
+        # KNNFewShot works differently - it wraps the program
+        compiled_program = optimizer.compile(program, trainset=trainset)
+        return compiled_program
+
     elif optimization_method == "mipro":
         print("Compiling with MIPROv2...")
         optimizer = dspy.MIPROv2(
@@ -282,7 +315,7 @@ if __name__ == "__main__":
         "--optimization",
         type=str,
         default="none",
-        choices=["none", "bootstrap", "mipro"],
+        choices=["none", "bootstrap", "bootstrap_random", "knn", "mipro"],
         help="Optimization method to use"
     )
     parser.add_argument(
@@ -353,14 +386,28 @@ if __name__ == "__main__":
             # metric=simple_pitch_metric # for testing
             metric=pitch_quality_metric # for evaluation
         )
+        
+        # Capture MLflow run_id (refactored)
+        mlflow_run_id = capture_mlflow_run_id(DATABRICKS_PATH, run_name)
+        # mlflow_run_id = None
+        
+        # Save program with metadata (refactored)
         if args.save_program:
-            save_dir = "optimized_programs"
-            os.makedirs(save_dir, exist_ok=True)
-            save_path = f"{save_dir}/pitch_{args.optimization}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            program.save(save_path)
-            print(f"   ✓ Saved optimized program to: {save_path}")
+            save_program_with_metadata(
+                program=program,
+                save_dir="optimized_programs",
+                optimization_method=args.optimization,
+                generator_model=generator_lm.model,
+                evaluator_model=evaluator_lm.model,
+                trainset_size=len(trainset),
+                testset_size=len(testset),
+                run_name=run_name,
+                mlflow_run_id=mlflow_run_id
+            )
     else:
         print("\n3. Running baseline (no optimization)...")
+        # For baseline, no MLflow run
+        mlflow_run_id = None
     
     # Evaluate on test set
     print("\n4. Evaluating on test set...")
@@ -369,52 +416,30 @@ if __name__ == "__main__":
         print(f"   Estimated time: ~{len(testset) * RATE_LIMIT_DELAY * (2 if args.evaluate else 1) / 60:.1f} minutes")
     results = evaluate_program(program, testset, use_evaluator=args.evaluate, rate_limit=not args.no_rate_limit)
     
-    # Save results
+    # Save results (refactored)
     print("\n5. Saving results...")
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    df = results_to_dataframe(
+        results=results,
+        optimization_method=args.optimization,
+        generator_model=generator_lm.model,
+        evaluator_model=evaluator_lm.model
+    )
     
-    # Create results dataframe
-    rows = []
-    for result in results:
-        row = {
-            "id": result["id"],
-            "company_name": result["input"].get("company_name", "Unknown"),
-            "ground_truth": result["ground_truth"],
-            "generated_pitch": result["generated_pitch"],
-            "optimization_method": args.optimization,
-            "model_name": generator_lm.model,
-            "evaluator_model_name": evaluator_lm.model,
-            "timestamp": timestamp
-        }
-        
-        if result["assessment"]:
-            row["final_score"] = result["assessment"].get("final_score", 0.0)
-            row["factual_score"] = result["assessment"].get("factual_score", 0.0)
-            row["narrative_score"] = result["assessment"].get("narrative_score", 0.0)
-            row["style_score"] = result["assessment"].get("style_score", 0.0)
-            row["reasoning"] = result["assessment"].get("reasoning", "")
-        
-        rows.append(row)
+    save_results_csv(
+        df=df,
+        optimization_method=args.optimization,
+        run_name=run_name,
+        mlflow_run_id=mlflow_run_id
+    )
     
-    df = pd.DataFrame(rows)
-    output_file = f"structured_pitch_results_{args.optimization}_{run_name}.csv"
-    df.to_csv(output_file, index=False)
-    
-    print(f"\n✓ Results saved to: {output_file}")
-    
-    # Print summary statistics
-    if args.evaluate and "final_score" in df.columns:
-        print("\n" + "=" * 80)
-        print("EVALUATION SUMMARY")
-        print("=" * 80)
-        print(f"Generator Model: groq/llama-3.3-70b-versatile")
-        print(f"Evaluator Model: groq/openai/gpt-oss-120b")
-        print(f"Optimization Method: {args.optimization}")
-        print(f"\nScores (0.0-1.0):")
-        print(f"  Average Final Score: {df['final_score'].mean():.3f} ± {df['final_score'].std():.3f}")
-        print(f"  Average Factual Score: {df['factual_score'].mean():.3f} ± {df['factual_score'].std():.3f}")
-        print(f"  Average Narrative Score: {df['narrative_score'].mean():.3f} ± {df['narrative_score'].std():.3f}")
-        print(f"  Average Style Score: {df['style_score'].mean():.3f} ± {df['style_score'].std():.3f}")
+    # Print summary statistics (refactored)
+    if args.evaluate:
+        print_evaluation_summary(
+            df=df,
+            generator_model=generator_lm.model,
+            evaluator_model=evaluator_lm.model,
+            optimization_method=args.optimization
+        )
     
     print("\n✓ Done!")
 
