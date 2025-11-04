@@ -63,13 +63,23 @@ else:
 
 # Configure DSPy language models
 # Generator: Llama 3.3 70B (fast, cost-effective for generation)
-generator_lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
+generator_lm = dspy.LM(
+    "groq/llama-3.3-70b-versatile", 
+    model_type="chat", 
+    api_key=GROQ_API_KEY,
+    temperature=1.0
+)
 
 # Evaluator: GPT OSS 120B (more powerful, objective evaluation - different architecture)
-evaluator_lm = dspy.LM("groq/openai/gpt-oss-120b", model_type="chat", api_key=GROQ_API_KEY)
+evaluator_lm = dspy.LM(
+    "groq/openai/gpt-oss-120b", 
+    model_type="chat", 
+    api_key=GROQ_API_KEY,
+    temperature=0.7
+)
 
 # Set default LM to generator (for pitch generation and optimization)
-dspy.configure(lm=generator_lm)
+dspy.configure(lm=generator_lm, track_usage=True)
 
 # Rate limiting configuration for Groq (30 requests per minute limit)
 RATE_LIMIT_DELAY = 2.5  # Seconds between API calls (safe margin: 24 calls/min)
@@ -253,10 +263,19 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
     # Create dedicated generator
     generator = PitchGenerator(generator_lm)
     
+    # Generate unique run identifier for cache busting
+    run_timestamp = int(time.time())
+    
     for idx, example in enumerate(tqdm(testset, desc="Evaluating", unit="pitch")):
         try:
             # Generate pitch using dedicated generator model
-            prediction = generator.generate(example.input)
+            prediction = generator.generate(
+                example.input,
+                config={
+                    "rollout_id": f"{run_timestamp}_{idx}",  # Unique per example
+                    "temperature": 1.0  # Bypass cache
+                }
+            )
             generated_pitch = prediction.pitch if hasattr(prediction, "pitch") else str(prediction)
             
             # Rate limiting after generation

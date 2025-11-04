@@ -75,17 +75,23 @@ class PitchGenerator:
         self.program = StructuredPitchProgram()
         print(f"✓ PitchGenerator initialized with model: {self.lm.model}")
     
-    def generate(self, input_data: dict):
+    def generate(self, input_data: dict, config: dict = None):
         """
         Generate a pitch using the assigned generator model.
         
         Args:
             input_data: Dictionary with structured pitch data
+            config: Optional config dict with rollout_id and temperature for cache control
             
         Returns:
             dspy.Prediction with pitch field
         """
-        with dspy.context(lm=self.lm):
+        # Build context parameters
+        context_params = {"lm": self.lm}
+        if config:
+            context_params.update(config)
+        
+        with dspy.context(**context_params):
             return self.program(input=input_data)
     
     def __call__(self, input_data: dict):
