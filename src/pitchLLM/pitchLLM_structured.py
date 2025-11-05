@@ -61,25 +61,10 @@ if DATABRICKS_PATH:
 else:
     print("No DATABRICKS_PATH found in .env")
 
-# Configure DSPy language models
-# Generator: Llama 3.3 70B (fast, cost-effective for generation)
-generator_lm = dspy.LM(
-    "groq/llama-3.3-70b-versatile", 
-    model_type="chat", 
-    api_key=GROQ_API_KEY,
-    temperature=1.0
-)
-
-# Evaluator: GPT OSS 120B (more powerful, objective evaluation - different architecture)
-evaluator_lm = dspy.LM(
-    "groq/openai/gpt-oss-120b", 
-    model_type="chat", 
-    api_key=GROQ_API_KEY,
-    temperature=0.7
-)
-
-# Set default LM to generator (for pitch generation and optimization)
-dspy.configure(lm=generator_lm, track_usage=True)
+# Model configuration will be done after argument parsing
+# This allows command-line control over which models to use
+generator_lm = None
+evaluator_lm = None
 
 # Rate limiting configuration for Groq (30 requests per minute limit)
 RATE_LIMIT_DELAY = 2.5  # Seconds between API calls (safe margin: 24 calls/min)
@@ -355,6 +340,18 @@ if __name__ == "__main__":
         help="Optimization method to use"
     )
     parser.add_argument(
+        "--generator-model",
+        type=str,
+        default="groq/llama-3.3-70b-versatile",
+        help="Model to use for pitch generation (e.g., groq/llama-3.1-8b-instant for testing)"
+    )
+    parser.add_argument(
+        "--evaluator-model",
+        type=str,
+        default="groq/openai/gpt-oss-120b",
+        help="Model to use for evaluation"
+    )
+    parser.add_argument(
         "--train-size",
         type=int,
         default=None,
@@ -384,9 +381,31 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    # Configure DSPy language models based on arguments
     print("=" * 80)
     print("DSPy Structured Pitch Generation")
     print("=" * 80)
+    print(f"\nModel Configuration:")
+    print(f"  Generator: {args.generator_model}")
+    print(f"  Evaluator: {args.evaluator_model}")
+    
+    # Initialize models with command-line arguments
+    generator_lm = dspy.LM(
+        args.generator_model,
+        model_type="chat", 
+        api_key=GROQ_API_KEY,
+        temperature=1.0
+    )
+    
+    evaluator_lm = dspy.LM(
+        args.evaluator_model,
+        model_type="chat", 
+        api_key=GROQ_API_KEY,
+        temperature=0.7
+    )
+    
+    # Set default LM to generator (for pitch generation and optimization)
+    dspy.configure(lm=generator_lm, track_usage=True)
     
     # Load data
     print("\n1. Loading data from HuggingFace...")
