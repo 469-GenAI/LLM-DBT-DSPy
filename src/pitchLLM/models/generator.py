@@ -8,14 +8,8 @@ from utils import PitchInput, format_pitch_input
 
 class PitchGenerationSig(dspy.Signature):
     """
-    Generate a compelling Shark Tank pitch from structured input.
-    
-    The pitch should:
-    - Start with an engaging introduction of the founders and company
-    - Present the investment ask clearly
-    - Tell a story about the problem from the customer's perspective
-    - Introduce the solution with compelling details
-    - End with a strong call to action for the Sharks
+    Generate a compelling Shark Tank pitch from facts.
+
     """
     
     pitch_data: str = dspy.InputField(
