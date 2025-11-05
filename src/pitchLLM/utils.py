@@ -88,6 +88,161 @@ Call to Action: {pitch_input.closing_theme.call_to_action}
 """.strip()
 
 
+# ---------- EMBEDDING AND VECTORIZATION UTILITIES ----------
+
+def flatten_dict_to_text(d: Dict[str, Any], parent_key: str = "", sep: str = ": ") -> List[str]:
+    """
+    Recursively flatten a nested dictionary into 'key: value' text pairs.
+    
+    This preserves semantic context by keeping keys alongside their values,
+    which improves embedding quality for semantic similarity matching.
+    
+    Args:
+        d: Dictionary to flatten
+        parent_key: Parent key for nested structures (used in recursion)
+        sep: Separator between key and value
+        
+    Returns:
+        List of 'key: value' strings
+        
+    Example:
+        >>> data = {
+        ...     "company_name": "PDX Pet Design",
+        ...     "initial_offer": {"amount": "300,000", "equity": "15%"},
+        ...     "problem_story": {
+        ...         "persona": "cat owners",
+        ...         "problem_keywords": ["disposable", "wasteful"]
+        ...     }
+        ... }
+        >>> flatten_dict_to_text(data)
+        [
+            "company_name: PDX Pet Design",
+            "amount: 300,000",
+            "equity: 15%",
+            "persona: cat owners",
+            "problem_keywords: disposable, wasteful"
+        ]
+    """
+    items = []
+    
+    for key, value in d.items():
+        # Create hierarchical key for nested dicts (optional, can be simplified)
+        new_key = f"{parent_key}.{key}" if parent_key else key
+        
+        if isinstance(value, dict):
+            # Recursively flatten nested dictionaries
+            items.extend(flatten_dict_to_text(value, parent_key="", sep=sep))
+        elif isinstance(value, list):
+            # Join list items with commas
+            list_str = ", ".join(str(item) for item in value)
+            items.append(f"{key}{sep}{list_str}")
+        elif value is not None:  # Skip None values
+            items.append(f"{key}{sep}{value}")
+    
+    return items
+
+
+def pitch_input_to_embedding_text(pitch_input_dict: Dict[str, Any]) -> str:
+    """
+    Convert a pitch input dictionary to a flattened text string for embedding.
+    
+    This function is specifically designed for use with KNNFewShot vectorizers,
+    transforming complex nested pitch structures into semantically rich text
+    that preserves context through key-value pairs.
+    
+    Args:
+        pitch_input_dict: Dictionary containing pitch structure (from HF dataset)
+        
+    Returns:
+        Space-separated string of 'key: value' pairs suitable for embedding
+        
+    Example:
+        >>> pitch_dict = {
+        ...     "company_name": "PDX Pet Design",
+        ...     "initial_offer": {"amount": "300,000", "equity": "15%"},
+        ...     "problem_story": {"persona": "cat owners", "core_problem": "..."}
+        ... }
+        >>> text = pitch_input_to_embedding_text(pitch_dict)
+        >>> # Returns: "company_name: PDX Pet Design amount: 300,000 equity: 15% ..."
+    """
+    flattened_pairs = flatten_dict_to_text(pitch_input_dict)
+    return " ".join(flattened_pairs)
+
+
+def create_pitch_vectorizer(model_name: str = "all-MiniLM-L6-v2"):
+    """
+    Create a vectorizer function for KNNFewShot that handles complex pitch input dictionaries.
+    
+    This vectorizer converts nested pitch structures into embeddings by:
+    1. Flattening the input dict with keys (preserving semantic context)
+    2. Converting to a single text string
+    3. Encoding with SentenceTransformer
+    
+    Args:
+        model_name: SentenceTransformer model to use for embeddings
+                   Default: "all-MiniLM-L6-v2" (lightweight, 384 dimensions)
+                   Alternatives:
+                   - "all-mpnet-base-v2" (better quality, 768 dimensions)
+                   - "BAAI/bge-small-en-v1.5" (good for retrieval, 384 dimensions)
+        
+    Returns:
+        Callable vectorizer function that takes a dspy.Example and returns embeddings
+        
+    Example:
+        >>> vectorizer = create_pitch_vectorizer()
+        >>> from dspy import KNNFewShot
+        >>> optimizer = KNNFewShot(k=3, trainset=trainset, vectorizer=vectorizer)
+        >>> compiled_program = optimizer.compile(program, trainset=trainset)
+    
+    Note:
+        The vectorizer is created as a closure to avoid reloading the embedding
+        model for each example. The SentenceTransformer model is loaded once
+        and reused for all vectorization calls.
+    """
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError:
+        raise ImportError(
+            "sentence-transformers is required for KNNFewShot vectorization. "
+            "Install it with: pip install sentence-transformers"
+        )
+    
+    # Load the embedding model once (closure captures this)
+    print(f"Loading embedding model: {model_name}")
+    embedding_model = SentenceTransformer(model_name)
+    print(f"✓ Loaded embedding model with {embedding_model.get_sentence_embedding_dimension()} dimensions")
+    
+    def vectorize_example(example) -> Any:
+        """
+        Convert a DSPy Example with complex input dict to an embedding vector.
+        
+        Args:
+            example: dspy.Example with 'input' field containing pitch structure dict
+            
+        Returns:
+            numpy array of embeddings (shape: [embedding_dim])
+        """
+        try:
+            if hasattr(example, "input") and isinstance(example.input, dict):
+                # Convert complex input dict to flattened text
+                input_text = pitch_input_to_embedding_text(example.input)
+            else:
+                # Fallback for simple string inputs or unexpected formats
+                input_text = str(example)
+            
+            # Generate embedding
+            embedding = embedding_model.encode(input_text, convert_to_numpy=True)
+            return embedding
+            
+        except Exception as e:
+            print(f"Warning: Error vectorizing example: {e}")
+            # Return zero vector as fallback to avoid breaking the optimization
+            import numpy as np
+            return np.zeros(embedding_model.get_sentence_embedding_dimension())
+    
+    return vectorize_example
+
+
 # ---------- LOGGING AND SAVING UTILITIES ----------
 
 def capture_mlflow_run_id(

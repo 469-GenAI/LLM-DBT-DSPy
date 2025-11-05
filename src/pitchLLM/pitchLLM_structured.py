@@ -209,12 +209,20 @@ def compile_program(
     
     elif optimization_method == "knn":
         print("Compiling with KNNFewShot...")
+        
+        # Create the vectorizer using utility function
+        from utils import create_pitch_vectorizer
+        vectorizer = create_pitch_vectorizer(model_name="all-MiniLM-L6-v2")
+        
+        # KNNFewShot takes trainset during initialization, not compilation
         optimizer = dspy.KNNFewShot(
-            k=3,  # Number of nearest neighbors to use
-            trainset=trainset
+            k=3,  # Number of nearest neighbors to use as few-shot examples
+            trainset=trainset,  # Trainset passed here (different from other optimizers)
+            vectorizer=vectorizer  # Custom vectorizer for complex pitch inputs
         )
-        # KNNFewShot works differently - it wraps the program
-        compiled_program = optimizer.compile(program, trainset=trainset)
+        
+        # compile() doesn't take trainset - just wraps the program for runtime KNN lookup
+        compiled_program = optimizer.compile(program)
         return compiled_program
 
     elif optimization_method == "mipro":
