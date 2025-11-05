@@ -13,21 +13,40 @@ class PitchAssessment(BaseModel):
 
 class AssessPitchQuality(dspy.Signature):
     """
-    Assess the generated pitch against a gold-standard pitch.
-    Evaluate factual inclusion, narrative structure, and persuasive tone.
+    Critically assess the generated pitch against a gold-standard pitch.
+    Be strict and penalize missing facts, weak narratives, and poor style.
     
-    Return a structured assessment with:
-    - factual_score (0.0-1.0): Whether all pitch_facts were included
-    - narrative_score (0.0-1.0): Clear problem, solution, and story
-    - style_score (0.0-1.0): Confident, persuasive, engaging tone
-    - reasoning: Brief explanation for the scores
-    - final_score: Weighted average (factual*0.4 + narrative*0.4 + style*0.2)
+    SCORING RUBRIC (be harsh):
+    
+    Factual Score (0.0-1.0):
+    - 1.0: ALL facts present, correctly represented, no hallucinations
+    - 0.7: Most facts present but 1-2 key details missing
+    - 0.5: Several important facts missing or incorrect
+    - 0.3: Many facts missing, significant errors
+    - 0.0: Almost no factual accuracy
+    
+    Narrative Score (0.0-1.0):
+    - 1.0: Crystal clear problem→solution→story, compelling flow
+    - 0.7: Clear structure but lacks compelling emotional arc
+    - 0.5: Basic structure present but disjointed or weak
+    - 0.3: Poor structure, hard to follow
+    - 0.0: No coherent narrative
+    
+    Style Score (0.0-1.0):
+    - 1.0: Highly persuasive, confident, Shark Tank-ready
+    - 0.7: Professional but lacks punch
+    - 0.5: Generic business pitch, not engaging
+    - 0.3: Weak tone, unconvincing
+    - 0.0: Unprofessional or inappropriate
+    
+    BE CRITICAL: A baseline model should score 0.4-0.6. Only exceptional pitches deserve 0.9+.
+    Final score is weighted average: factual*0.4 + narrative*0.4 + style*0.2
     """
     
     pitch_facts: str = dspy.InputField(desc="The specific facts the pitch was based on.")
     ground_truth_pitch: str = dspy.InputField(desc="The gold-standard pitch to compare against.")
-    generated_pitch: str = dspy.InputField(desc="The AI-generated pitch.")
+    generated_pitch: str = dspy.InputField(desc="The AI-generated pitch to critically assess.")
     
     assessment: PitchAssessment = dspy.OutputField(
-        desc="Structured assessment with factual_score, narrative_score, style_score (each 0.0-1.0), reasoning, and final_score"
+        desc="Harsh assessment with factual_score, narrative_score, style_score (0.0-1.0), reasoning explaining penalties, and final_score"
     )

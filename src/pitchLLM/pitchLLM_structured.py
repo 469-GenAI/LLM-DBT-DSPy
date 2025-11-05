@@ -401,7 +401,7 @@ if __name__ == "__main__":
         args.evaluator_model,
         model_type="chat", 
         api_key=GROQ_API_KEY,
-        temperature=0.7
+        temperature=0.1  # Low temperature for consistent, strict scoring (avoiding 0.0 for cache)
     )
     
     # Set default LM to generator (for pitch generation and optimization)
