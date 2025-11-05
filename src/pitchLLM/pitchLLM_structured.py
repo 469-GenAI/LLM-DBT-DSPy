@@ -251,7 +251,7 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
     Evaluate the program on a test set with rate limiting.
     
     Args:
-        program: The program to evaluate
+        program: The compiled program to evaluate (uses optimization if compiled)
         testset: List of test examples
         use_evaluator: Whether to use detailed AssessPitch evaluation
         rate_limit: Whether to enforce rate limiting (default: True for Groq)
@@ -263,27 +263,36 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
         With rate limiting enabled, respects Groq's 30 requests/min limit.
         Each example makes 2 API calls (generation + evaluation), so we process
         ~12 examples per minute safely.
+        
+        IMPORTANT: This function uses the compiled program directly, which ensures:
+        - KNN optimization selects nearest neighbor demos at runtime
+        - Bootstrap/MIPROv2 use the optimized prompts and demos
+        - MLflow traces are properly captured
     """
     results = []
     # Create dedicated evaluator
     evaluator = PitchEvaluator(evaluator_lm) if use_evaluator else None
-    
-    # Create dedicated generator
-    generator = PitchGenerator(generator_lm)
     
     # Generate unique run identifier for cache busting
     run_timestamp = int(time.time())
     
     for idx, example in enumerate(tqdm(testset, desc="Evaluating", unit="pitch")):
         try:
-            # Generate pitch using dedicated generator model
-            prediction = generator.generate(
-                example.input,
+            # ✅ USE THE COMPILED PROGRAM - this ensures optimization is applied
+            # For KNN: selects k nearest neighbors as demos
+            # For Bootstrap/MIPROv2: uses optimized prompts and demos
+            # For baseline: uses base program
+            # 
+            # Pass config directly (no dspy.context wrapper) to avoid MLflow conflicts
+            # This follows DSPy best practices for cache busting and LM config
+            prediction = program(
+                input=example.input,
                 config={
-                    "rollout_id": f"{run_timestamp}_{idx}",  # Unique per example
+                    "rollout_id": f"{run_timestamp}_{idx}",  # Unique per example for cache control
                     "temperature": 1.0  # Bypass cache
                 }
             )
+            
             generated_pitch = prediction.pitch if hasattr(prediction, "pitch") else str(prediction)
             
             # Rate limiting after generation

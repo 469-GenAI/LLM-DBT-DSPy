@@ -35,12 +35,14 @@ class StructuredPitchProgram(dspy.Module):
         super().__init__()
         self.generate_pitch = dspy.ChainOfThought(PitchGenerationSig)
     
-    def forward(self, input: dict):
+    def forward(self, input: dict, **kwargs):
         """
         Generate a pitch from structured input.
         
         Args:
             input: Dictionary containing structured pitch data
+            **kwargs: Additional arguments passed to underlying predictors
+                     (e.g., config={"rollout_id": "...", "temperature": 1.0})
             
         Returns:
             dspy.Prediction with pitch field
@@ -52,7 +54,8 @@ class StructuredPitchProgram(dspy.Module):
             print(f"Warning: Could not parse input as PitchInput: {e}")
             formatted_input = json.dumps(input, indent=2)
         
-        prediction = self.generate_pitch(pitch_data=formatted_input)
+        # Pass kwargs (including config) to the underlying predictor
+        prediction = self.generate_pitch(pitch_data=formatted_input, **kwargs)
         return prediction
 
 
