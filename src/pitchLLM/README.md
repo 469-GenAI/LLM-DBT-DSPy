@@ -126,34 +126,12 @@ The system expects data from the HuggingFace dataset `isaidchia/sharktank_pitche
 ```json
 {
   "id": "unique-id",
-  "_meta_index": 123,
   "input": {
-    "founders": ["Founder 1", "Founder 2"],
-    "company_name": "Company Name",
-    "initial_offer": {
-      "amount": "$400k",
-      "equity": "5%"
-    },
-    "problem_story": {
-      "persona": "target customer",
-      "routine": ["action 1", "action 2"],
-      "core_problem": "main problem",
-      "hygiene_gap": "gap in current solutions",
-      "problem_keywords": ["keyword1", "keyword2"]
-    },
-    "product_solution": {
-      "name": "Product Name",
-      "product_category": "category",
-      "key_differentiator": "what makes it unique",
-      "application": "how it's used",
-      "features_keywords": ["feature1", "feature2"],
-      "benefits_keywords": ["benefit1", "benefit2"]
-    },
-    "closing_theme": {
-      "call_to_action": "invest now",
-      "mission": "company mission",
-      "target_audience": "target audience description"
-    }
+    "company": "Company Name",
+    "founder": ["Founder 1", "Founder 2"],
+    "offer": "400,000 for 5%",
+    "problem_summary": "Description of the problem being addressed, including target customer persona and the gap in current solutions.",
+    "solution_summary": "Description of the product or service, what makes it unique, key features, and how it solves the problem."
   },
   "output": "The full narrative pitch text..."
 }

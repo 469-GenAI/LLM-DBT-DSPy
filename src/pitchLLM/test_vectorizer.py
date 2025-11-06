@@ -25,15 +25,11 @@ def test_flatten_dict():
     print("=" * 80)
     
     test_data = {
-        "company_name": "PDX Pet Design",
-        "initial_offer": {
-            "amount": "300,000",
-            "equity": "15%"
-        },
-        "problem_story": {
-            "persona": "cat owners",
-            "problem_keywords": ["disposable", "wasteful"]
-        }
+        "company": "PDX Pet Design",
+        "founder": ["Founder 1"],
+        "offer": "300,000 for 15%",
+        "problem_summary": "Cat owners face disposable and wasteful toy options",
+        "solution_summary": "Sustainable cat toys that last longer"
     }
     
     flattened = flatten_dict_to_text(test_data)
@@ -44,7 +40,7 @@ def test_flatten_dict():
         print(f"  - {item}")
     
     assert len(flattened) > 0, "Should produce flattened output"
-    assert any("company_name" in item for item in flattened), "Should include company_name"
+    assert any("company" in item for item in flattened), "Should include company"
     print("\n✓ Test passed!")
 
 
@@ -55,13 +51,11 @@ def test_pitch_to_text():
     print("=" * 80)
     
     pitch_dict = {
-        "founders": ["Founder 1", "Founder 2"],
-        "company_name": "PDX Pet Design",
-        "initial_offer": {"amount": "300,000", "equity": "15%"},
-        "problem_story": {
-            "persona": "cat owners",
-            "core_problem": "cat toys are disposable"
-        }
+        "company": "PDX Pet Design",
+        "founder": ["Founder 1", "Founder 2"],
+        "offer": "300,000 for 15%",
+        "problem_summary": "Cat owners face disposable toys that cats quickly lose interest in",
+        "solution_summary": "Sustainable, engaging cat toys with intelligent design"
     }
     
     embedding_text = pitch_input_to_embedding_text(pitch_dict)
@@ -73,7 +67,7 @@ def test_pitch_to_text():
     
     assert len(embedding_text) > 0, "Should produce text output"
     assert "PDX Pet Design" in embedding_text, "Should contain company name"
-    assert "cat owners" in embedding_text, "Should contain persona"
+    assert "Cat owners" in embedding_text, "Should contain problem context"
     print("\n✓ Test passed!")
 
 
@@ -85,22 +79,11 @@ def test_vectorizer():
     
     # Create a test example
     pitch_input = {
-        "founders": ["Founder 1", "Founder 2"],
-        "company_name": "PDX Pet Design",
-        "initial_offer": {"amount": "300,000", "equity": "15%"},
-        "problem_story": {
-            "persona": "cat owners",
-            "core_problem": "cat toys are disposable and quickly lose interest"
-        },
-        "product_solution": {
-            "name": "Shrew",
-            "product_category": "cat wellness products",
-            "key_differentiator": "intelligent cat companion"
-        },
-        "closing_theme": {
-            "mission": "revolutionize pet products",
-            "target_audience": "cat owners"
-        }
+        "company": "PDX Pet Design",
+        "founder": ["Founder 1", "Founder 2"],
+        "offer": "300,000 for 15%",
+        "problem_summary": "Cat owners struggle with disposable toys that cats quickly lose interest in, creating waste and frustration",
+        "solution_summary": "Shrew is an intelligent cat companion in the wellness products category that revolutionizes how cats play and stay engaged"
     }
     
     example = dspy.Example(
@@ -132,22 +115,28 @@ def test_similarity():
     
     # Two similar pitches (pet products)
     pitch1 = {
-        "company_name": "PDX Pet Design",
-        "problem_story": {"persona": "cat owners", "core_problem": "disposable cat toys"},
-        "product_solution": {"name": "Shrew", "product_category": "cat wellness products"}
+        "company": "PDX Pet Design",
+        "founder": ["Founder 1"],
+        "offer": "300,000 for 15%",
+        "problem_summary": "Cat owners struggle with disposable cat toys that create waste",
+        "solution_summary": "Shrew offers sustainable cat wellness products"
     }
     
     pitch2 = {
-        "company_name": "Dog Toys Inc",
-        "problem_story": {"persona": "dog owners", "core_problem": "boring dog toys"},
-        "product_solution": {"name": "FetchBot", "product_category": "dog wellness products"}
+        "company": "Dog Toys Inc",
+        "founder": ["Founder 1"],
+        "offer": "250,000 for 12%",
+        "problem_summary": "Dog owners face boring dog toys that don't engage their pets",
+        "solution_summary": "FetchBot provides innovative dog wellness products"
     }
     
     # One dissimilar pitch (food tech)
     pitch3 = {
-        "company_name": "NuMilk",
-        "problem_story": {"persona": "health conscious consumers", "core_problem": "processed dairy milk"},
-        "product_solution": {"name": "NuMilk Machine", "product_category": "dairy-free milk"}
+        "company": "NuMilk",
+        "founder": ["Founder 1"],
+        "offer": "500,000 for 10%",
+        "problem_summary": "Health conscious consumers want alternatives to processed dairy milk",
+        "solution_summary": "NuMilk Machine produces fresh dairy-free milk at home"
     }
     
     vectorizer = create_pitch_vectorizer(model_name="all-MiniLM-L6-v2")

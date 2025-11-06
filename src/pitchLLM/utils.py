@@ -12,46 +12,13 @@ import os
 from datetime import datetime
 
 
-class ProblemStory(BaseModel):
-    """Model representing the problem narrative in a pitch."""
-    persona: str = Field(..., description="The target customer persona")
-    routine: List[str] = Field(..., description="List of routine behaviors or actions")
-    core_problem: str = Field(..., description="The central problem being addressed")
-    hygiene_gap: str = Field(..., description="The gap in current solutions")
-    problem_keywords: List[str] = Field(..., description="Key problem descriptors")
-
-
-class ProductSolution(BaseModel):
-    """Model representing the product solution in a pitch."""
-    name: str = Field(..., description="Product or company name")
-    product_category: str = Field(..., description="Category of the product")
-    key_differentiator: str = Field(..., description="What makes this product unique")
-    application: str = Field(..., description="How the product is used")
-    features_keywords: List[str] = Field(..., description="Key features of the product")
-    benefits_keywords: List[str] = Field(..., description="Key benefits to customers")
-
-
-class ClosingTheme(BaseModel):
-    """Model representing the closing theme of a pitch."""
-    call_to_action: str = Field(..., description="The call to action for investors")
-    mission: str = Field(..., description="The company's mission statement")
-    target_audience: str = Field(..., description="Target audience description")
-
-
-class InitialOfferInput(BaseModel):
-    """Model representing the investment offer details."""
-    amount: str = Field(..., description="Funding amount requested (e.g., '$400k')")
-    equity: str = Field(..., description="Equity percentage offered (e.g., '5%')")
-
-
 class PitchInput(BaseModel):
     """Complete structured input for pitch generation."""
-    founders: List[str] = Field(..., description="List of founder names")
-    company_name: str = Field(..., description="Name of the company")
-    initial_offer: InitialOfferInput = Field(..., description="Investment offer details")
-    problem_story: ProblemStory = Field(..., description="The problem narrative")
-    product_solution: ProductSolution = Field(..., description="The product solution")
-    closing_theme: ClosingTheme = Field(..., description="Closing theme and call to action")
+    company: str = Field(..., description="Name of the company")
+    founder: List[str] = Field(..., description="List of founder names")
+    offer: str = Field(..., description="Investment offer (e.g., '125000 for 20%')")
+    problem_summary: str = Field(..., description="Summary of the problem being addressed")
+    solution_summary: str = Field(..., description="Summary of the solution provided")
 
 
 def format_pitch_input(pitch_input: PitchInput) -> str:
@@ -65,26 +32,15 @@ def format_pitch_input(pitch_input: PitchInput) -> str:
         Formatted string representation of the pitch input
     """
     return f"""
-Company: {pitch_input.company_name}
-Founders: {', '.join(pitch_input.founders)}
-Investment Ask: {pitch_input.initial_offer.amount} for {pitch_input.initial_offer.equity} equity
+Company: {pitch_input.company}
+Founders: {', '.join(pitch_input.founder)}
+Investment Offer: {pitch_input.offer}
 
 PROBLEM:
-Persona: {pitch_input.problem_story.persona}
-Core Problem: {pitch_input.problem_story.core_problem}
-Gap: {pitch_input.problem_story.hygiene_gap}
+{pitch_input.problem_summary}
 
 SOLUTION:
-Product: {pitch_input.product_solution.name}
-Category: {pitch_input.product_solution.product_category}
-Differentiator: {pitch_input.product_solution.key_differentiator}
-Application: {pitch_input.product_solution.application}
-Key Features: {', '.join(pitch_input.product_solution.features_keywords)}
-Key Benefits: {', '.join(pitch_input.product_solution.benefits_keywords)}
-
-CLOSING:
-Mission: {pitch_input.closing_theme.mission}
-Call to Action: {pitch_input.closing_theme.call_to_action}
+{pitch_input.solution_summary}
 """.strip()
 
 
@@ -107,20 +63,19 @@ def flatten_dict_to_text(d: Dict[str, Any], parent_key: str = "", sep: str = ": 
         
     Example:
         >>> data = {
-        ...     "company_name": "PDX Pet Design",
-        ...     "initial_offer": {"amount": "300,000", "equity": "15%"},
-        ...     "problem_story": {
-        ...         "persona": "cat owners",
-        ...         "problem_keywords": ["disposable", "wasteful"]
-        ...     }
+        ...     "company": "PDX Pet Design",
+        ...     "founder": ["Founder 1", "Founder 2"],
+        ...     "offer": "300,000 for 15%",
+        ...     "problem_summary": "Disposable cat toys are wasteful",
+        ...     "solution_summary": "Sustainable cat toys"
         ... }
         >>> flatten_dict_to_text(data)
         [
-            "company_name: PDX Pet Design",
-            "amount: 300,000",
-            "equity: 15%",
-            "persona: cat owners",
-            "problem_keywords: disposable, wasteful"
+            "company: PDX Pet Design",
+            "founder: Founder 1, Founder 2",
+            "offer: 300,000 for 15%",
+            "problem_summary: Disposable cat toys are wasteful",
+            "solution_summary: Sustainable cat toys"
         ]
     """
     items = []
@@ -158,12 +113,14 @@ def pitch_input_to_embedding_text(pitch_input_dict: Dict[str, Any]) -> str:
         
     Example:
         >>> pitch_dict = {
-        ...     "company_name": "PDX Pet Design",
-        ...     "initial_offer": {"amount": "300,000", "equity": "15%"},
-        ...     "problem_story": {"persona": "cat owners", "core_problem": "..."}
+        ...     "company": "PDX Pet Design",
+        ...     "founder": ["Founder 1"],
+        ...     "offer": "300,000 for 15%",
+        ...     "problem_summary": "Cat toys are wasteful",
+        ...     "solution_summary": "Sustainable cat toys"
         ... }
         >>> text = pitch_input_to_embedding_text(pitch_dict)
-        >>> # Returns: "company_name: PDX Pet Design amount: 300,000 equity: 15% ..."
+        >>> # Returns: "company: PDX Pet Design founder: Founder 1 offer: 300,000 for 15% ..."
     """
     flattened_pairs = flatten_dict_to_text(pitch_input_dict)
     return " ".join(flattened_pairs)
@@ -440,7 +397,7 @@ def results_to_dataframe(
     for result in results:
         row = {
             "id": result["id"],
-            "company_name": result["input"].get("company_name", "Unknown"),
+            "company_name": result["input"].get("company", "Unknown"),
             "ground_truth": result["ground_truth"],
             "generated_pitch": result["generated_pitch"],
             "optimization_method": optimization_method,

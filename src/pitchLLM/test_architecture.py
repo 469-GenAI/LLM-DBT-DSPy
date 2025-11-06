@@ -34,29 +34,11 @@ evaluator = PitchEvaluator(evaluator_lm)
 
 # Test data
 test_input = {
-    "founders": ["Test Founder"],
-    "company_name": "TestCo",
-    "initial_offer": {"amount": "$100k", "equity": "10%"},
-    "problem_story": {
-        "persona": "test persona",
-        "routine": ["routine 1"],
-        "core_problem": "test problem",
-        "hygiene_gap": "test gap",
-        "problem_keywords": ["keyword1"]
-    },
-    "product_solution": {
-        "name": "Test Product",
-        "product_category": "test category",
-        "key_differentiator": "test diff",
-        "application": "test app",
-        "features_keywords": ["feature1"],
-        "benefits_keywords": ["benefit1"]
-    },
-    "closing_theme": {
-        "call_to_action": "test cta",
-        "mission": "test mission",
-        "target_audience": "test audience"
-    }
+    "company": "TestCo",
+    "founder": ["Test Founder"],
+    "offer": "100,000 for 10%",
+    "problem_summary": "Test persona faces a critical problem with current solutions. There is a significant gap in the market that needs to be addressed.",
+    "solution_summary": "Test Product is a unique solution in the test category. Our key differentiator provides specific features and benefits to solve this problem."
 }
 
 ground_truth = "Hi Sharks, I'm Test Founder from TestCo. We're asking for $100k for 10% of our company..."

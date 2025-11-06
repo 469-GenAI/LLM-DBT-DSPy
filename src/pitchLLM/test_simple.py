@@ -64,38 +64,17 @@ def test_utils():
     try:
         # Create a sample input
         sample_input = {
-            "founders": ["Test Founder"],
-            "company_name": "Test Company",
-            "initial_offer": {
-                "amount": "$100k",
-                "equity": "10%"
-            },
-            "problem_story": {
-                "persona": "Test persona",
-                "routine": ["routine 1", "routine 2"],
-                "core_problem": "Test problem",
-                "hygiene_gap": "Test gap",
-                "problem_keywords": ["keyword1", "keyword2"]
-            },
-            "product_solution": {
-                "name": "Test Product",
-                "product_category": "Test Category",
-                "key_differentiator": "Test differentiator",
-                "application": "Test application",
-                "features_keywords": ["feature1", "feature2"],
-                "benefits_keywords": ["benefit1", "benefit2"]
-            },
-            "closing_theme": {
-                "call_to_action": "Test CTA",
-                "mission": "Test mission",
-                "target_audience": "Test audience"
-            }
+            "company": "Test Company",
+            "founder": ["Test Founder"],
+            "offer": "100,000 for 10%",
+            "problem_summary": "Test problem: Many users face this challenge with no good solutions available.",
+            "solution_summary": "Test solution: Our product solves this with innovative features and benefits."
         }
         
         pitch_input = PitchInput(**sample_input)
         print(f"✓ Successfully created PitchInput model")
-        print(f"  - Company: {pitch_input.company_name}")
-        print(f"  - Founders: {len(pitch_input.founders)}")
+        print(f"  - Company: {pitch_input.company}")
+        print(f"  - Founders: {len(pitch_input.founder)}")
         
         formatted = format_pitch_input(pitch_input)
         print(f"\n✓ Successfully formatted input ({len(formatted)} chars)")
@@ -123,7 +102,7 @@ def test_pitch_generation(data):
         
         # Generate pitch from first example
         example = data['test'][0]
-        print(f"\nGenerating pitch for: {example.input.get('company_name', 'Unknown')}")
+        print(f"\nGenerating pitch for: {example.input.get('company', 'Unknown')}")
         
         prediction = program(input=example.input)
         generated_pitch = prediction.pitch if hasattr(prediction, 'pitch') else str(prediction)
