@@ -8,7 +8,7 @@ from datasets import load_dataset
 from typing import List, Dict, Any
 
 
-def load_hf_dataset(dataset_name: str = "isaidchia/sharktank_pitches") -> Dict[str, Any]:
+def load_hf_dataset(dataset_name: str = "isaidchia/sharktank_pitches_modified") -> Dict[str, Any]:
     """
     Load the HuggingFace sharktank_pitches dataset.
     
@@ -69,7 +69,7 @@ def prepare_dspy_examples(hf_dataset_split) -> List[dspy.Example]:
     return examples
 
 
-def load_and_prepare_data(dataset_name: str = "isaidchia/sharktank_pitches") -> Dict[str, List[dspy.Example]]:
+def load_and_prepare_data(dataset_name: str = "isaidchia/sharktank_pitches_modified") -> Dict[str, List[dspy.Example]]:
     """
     Convenience function to load dataset and prepare both train and test splits.
     
