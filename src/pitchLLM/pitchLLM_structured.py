@@ -48,6 +48,8 @@ logging.getLogger("mlflow.tracing.export.mlflow_v3").setLevel(logging.ERROR)
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
+BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
+
 
 # comment out if you want to stop tracking
 if DATABRICKS_PATH:
@@ -390,12 +392,20 @@ if __name__ == "__main__":
     print(f"  Evaluator: {args.evaluator_model}")
     
     # Initialize models with command-line arguments
-    generator_lm = dspy.LM(
-        args.generator_model,
-        model_type="chat", 
-        api_key=GROQ_API_KEY,
-        temperature=1.0
-    )
+    if args.generator_model.startswith("bedrock/"):
+        generator_lm = dspy.LM(
+            args.generator_model,
+            model_type="chat",
+            api_key=BEDROCK_API_KEY,
+            temperature=1.0
+        )
+    else:
+        generator_lm = dspy.LM(
+            args.generator_model,
+            model_type="chat", 
+            api_key=GROQ_API_KEY,
+            temperature=1.0
+        )
     
     evaluator_lm = dspy.LM(
         args.evaluator_model,

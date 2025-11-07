@@ -11,6 +11,8 @@ The system takes structured pitch data (company info, problem story, product sol
 For objective evaluation, the system uses **two different models**:
 
 - **Generator**: Llama 3.3 70B (`groq/llama-3.3-70b-versatile`) - Fast, efficient pitch generation
+  - bedrock/us.meta.llama3-2-3b-instruct-v1:0
+  - groq/llama-3.1-8b-instant
 - **Evaluator**: GPT-OSS 120B (`groq/openai/gpt-oss-120b`) - More powerful, objective evaluation
 
 This eliminates self-evaluation bias where a model might favor its own generation style.
