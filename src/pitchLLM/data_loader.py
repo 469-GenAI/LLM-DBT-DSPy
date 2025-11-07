@@ -8,7 +8,7 @@ from datasets import load_dataset
 from typing import List, Dict, Any
 
 
-def load_hf_dataset(dataset_name: str = "isaidchia/sharktank_pitches") -> Dict[str, Any]:
+def load_hf_dataset(dataset_name: str = "isaidchia/sharktank_pitches_modified") -> Dict[str, Any]:
     """
     Load the HuggingFace sharktank_pitches dataset.
     
@@ -41,8 +41,7 @@ def prepare_dspy_examples(hf_dataset_split) -> List[dspy.Example]:
     Example:
         Each row in the HF dataset has:
         - id: unique identifier
-        - _meta_index: index metadata
-        - input: dict with pitch structure (founders, company_name, etc.)
+        - input: dict with pitch structure (company, founder, offer, problem_summary, solution_summary)
         - output: string with the actual pitch text
         
         We convert this to dspy.Example and mark 'input' as the input field
@@ -51,10 +50,9 @@ def prepare_dspy_examples(hf_dataset_split) -> List[dspy.Example]:
     
     for row in hf_dataset_split:
         # Create a DSPy Example with all fields from the row
-        # This includes: id, _meta_index, input (dict), output (string)
+        # This includes: id,input (dict), output (string)
         example = dspy.Example(
             id=row["id"],
-            _meta_index=row["_meta_index"],
             input=row["input"],
             output=row["output"]
         )
@@ -69,7 +67,7 @@ def prepare_dspy_examples(hf_dataset_split) -> List[dspy.Example]:
     return examples
 
 
-def load_and_prepare_data(dataset_name: str = "isaidchia/sharktank_pitches") -> Dict[str, List[dspy.Example]]:
+def load_and_prepare_data(dataset_name: str = "isaidchia/sharktank_pitches_modified") -> Dict[str, List[dspy.Example]]:
     """
     Convenience function to load dataset and prepare both train and test splits.
     

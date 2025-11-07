@@ -48,6 +48,8 @@ logging.getLogger("mlflow.tracing.export.mlflow_v3").setLevel(logging.ERROR)
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
+BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
+
 
 # comment out if you want to stop tracking
 if DATABRICKS_PATH:
@@ -61,15 +63,10 @@ if DATABRICKS_PATH:
 else:
     print("No DATABRICKS_PATH found in .env")
 
-# Configure DSPy language models
-# Generator: Llama 3.3 70B (fast, cost-effective for generation)
-generator_lm = dspy.LM("groq/llama-3.3-70b-versatile", model_type="chat", api_key=GROQ_API_KEY)
-
-# Evaluator: GPT OSS 120B (more powerful, objective evaluation - different architecture)
-evaluator_lm = dspy.LM("groq/openai/gpt-oss-120b", model_type="chat", api_key=GROQ_API_KEY)
-
-# Set default LM to generator (for pitch generation and optimization)
-dspy.configure(lm=generator_lm)
+# Model configuration will be done after argument parsing
+# This allows command-line control over which models to use
+generator_lm = None
+evaluator_lm = None
 
 # Rate limiting configuration for Groq (30 requests per minute limit)
 RATE_LIMIT_DELAY = 2.5  # Seconds between API calls (safe margin: 24 calls/min)
@@ -199,12 +196,20 @@ def compile_program(
     
     elif optimization_method == "knn":
         print("Compiling with KNNFewShot...")
+        
+        # Create the vectorizer using utility function
+        from utils import create_pitch_vectorizer
+        vectorizer = create_pitch_vectorizer(model_name="all-MiniLM-L6-v2")
+        
+        # KNNFewShot takes trainset during initialization, not compilation
         optimizer = dspy.KNNFewShot(
-            k=3,  # Number of nearest neighbors to use
-            trainset=trainset
+            k=3,  # Number of nearest neighbors to use as few-shot examples
+            trainset=trainset,  # Trainset passed here (different from other optimizers)
+            vectorizer=vectorizer  # Custom vectorizer for complex pitch inputs
         )
-        # KNNFewShot works differently - it wraps the program
-        compiled_program = optimizer.compile(program, trainset=trainset)
+        
+        # compile() doesn't take trainset - just wraps the program for runtime KNN lookup
+        compiled_program = optimizer.compile(program)
         return compiled_program
 
     elif optimization_method == "mipro":
@@ -233,7 +238,7 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
     Evaluate the program on a test set with rate limiting.
     
     Args:
-        program: The program to evaluate
+        program: The compiled program to evaluate (uses optimization if compiled)
         testset: List of test examples
         use_evaluator: Whether to use detailed AssessPitch evaluation
         rate_limit: Whether to enforce rate limiting (default: True for Groq)
@@ -245,18 +250,36 @@ def evaluate_program(program, testset, use_evaluator=False, rate_limit=True):
         With rate limiting enabled, respects Groq's 30 requests/min limit.
         Each example makes 2 API calls (generation + evaluation), so we process
         ~12 examples per minute safely.
+        
+        IMPORTANT: This function uses the compiled program directly, which ensures:
+        - KNN optimization selects nearest neighbor demos at runtime
+        - Bootstrap/MIPROv2 use the optimized prompts and demos
+        - MLflow traces are properly captured
     """
     results = []
     # Create dedicated evaluator
     evaluator = PitchEvaluator(evaluator_lm) if use_evaluator else None
     
-    # Create dedicated generator
-    generator = PitchGenerator(generator_lm)
+    # Generate unique run identifier for cache busting
+    run_timestamp = int(time.time())
     
     for idx, example in enumerate(tqdm(testset, desc="Evaluating", unit="pitch")):
         try:
-            # Generate pitch using dedicated generator model
-            prediction = generator.generate(example.input)
+            # ✅ USE THE COMPILED PROGRAM - this ensures optimization is applied
+            # For KNN: selects k nearest neighbors as demos
+            # For Bootstrap/MIPROv2: uses optimized prompts and demos
+            # For baseline: uses base program
+            # 
+            # Pass config directly (no dspy.context wrapper) to avoid MLflow conflicts
+            # This follows DSPy best practices for cache busting and LM config
+            prediction = program(
+                input=example.input,
+                config={
+                    "rollout_id": f"{run_timestamp}_{idx}",  # Unique per example for cache control
+                    "temperature": 1.0  # Bypass cache
+                }
+            )
+            
             generated_pitch = prediction.pitch if hasattr(prediction, "pitch") else str(prediction)
             
             # Rate limiting after generation
@@ -319,6 +342,18 @@ if __name__ == "__main__":
         help="Optimization method to use"
     )
     parser.add_argument(
+        "--generator-model",
+        type=str,
+        default="groq/llama-3.3-70b-versatile",
+        help="Model to use for pitch generation (e.g., groq/llama-3.1-8b-instant for testing)"
+    )
+    parser.add_argument(
+        "--evaluator-model",
+        type=str,
+        default="groq/openai/gpt-oss-120b",
+        help="Model to use for evaluation"
+    )
+    parser.add_argument(
         "--train-size",
         type=int,
         default=None,
@@ -348,9 +383,39 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    # Configure DSPy language models based on arguments
     print("=" * 80)
     print("DSPy Structured Pitch Generation")
     print("=" * 80)
+    print(f"\nModel Configuration:")
+    print(f"  Generator: {args.generator_model}")
+    print(f"  Evaluator: {args.evaluator_model}")
+    
+    # Initialize models with command-line arguments
+    if args.generator_model.startswith("bedrock/"):
+        generator_lm = dspy.LM(
+            args.generator_model,
+            model_type="chat",
+            api_key=BEDROCK_API_KEY,
+            temperature=1.0
+        )
+    else:
+        generator_lm = dspy.LM(
+            args.generator_model,
+            model_type="chat", 
+            api_key=GROQ_API_KEY,
+            temperature=1.0
+        )
+    
+    evaluator_lm = dspy.LM(
+        args.evaluator_model,
+        model_type="chat", 
+        api_key=GROQ_API_KEY,
+        temperature=0.1  # Low temperature for consistent, strict scoring (avoiding 0.0 for cache)
+    )
+    
+    # Set default LM to generator (for pitch generation and optimization)
+    dspy.configure(lm=generator_lm, track_usage=True)
     
     # Load data
     print("\n1. Loading data from HuggingFace...")

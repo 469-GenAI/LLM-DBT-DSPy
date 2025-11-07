@@ -12,46 +12,13 @@ import os
 from datetime import datetime
 
 
-class ProblemStory(BaseModel):
-    """Model representing the problem narrative in a pitch."""
-    persona: str = Field(..., description="The target customer persona")
-    routine: List[str] = Field(..., description="List of routine behaviors or actions")
-    core_problem: str = Field(..., description="The central problem being addressed")
-    hygiene_gap: str = Field(..., description="The gap in current solutions")
-    problem_keywords: List[str] = Field(..., description="Key problem descriptors")
-
-
-class ProductSolution(BaseModel):
-    """Model representing the product solution in a pitch."""
-    name: str = Field(..., description="Product or company name")
-    product_category: str = Field(..., description="Category of the product")
-    key_differentiator: str = Field(..., description="What makes this product unique")
-    application: str = Field(..., description="How the product is used")
-    features_keywords: List[str] = Field(..., description="Key features of the product")
-    benefits_keywords: List[str] = Field(..., description="Key benefits to customers")
-
-
-class ClosingTheme(BaseModel):
-    """Model representing the closing theme of a pitch."""
-    call_to_action: str = Field(..., description="The call to action for investors")
-    mission: str = Field(..., description="The company's mission statement")
-    target_audience: str = Field(..., description="Target audience description")
-
-
-class InitialOfferInput(BaseModel):
-    """Model representing the investment offer details."""
-    amount: str = Field(..., description="Funding amount requested (e.g., '$400k')")
-    equity: str = Field(..., description="Equity percentage offered (e.g., '5%')")
-
-
 class PitchInput(BaseModel):
     """Complete structured input for pitch generation."""
-    founders: List[str] = Field(..., description="List of founder names")
-    company_name: str = Field(..., description="Name of the company")
-    initial_offer: InitialOfferInput = Field(..., description="Investment offer details")
-    problem_story: ProblemStory = Field(..., description="The problem narrative")
-    product_solution: ProductSolution = Field(..., description="The product solution")
-    closing_theme: ClosingTheme = Field(..., description="Closing theme and call to action")
+    company: str = Field(..., description="Name of the company")
+    founder: List[str] = Field(..., description="List of founder names")
+    offer: str = Field(..., description="Investment offer (e.g., '125000 for 20%')")
+    problem_summary: str = Field(..., description="Summary of the problem being addressed")
+    solution_summary: str = Field(..., description="Summary of the solution provided")
 
 
 def format_pitch_input(pitch_input: PitchInput) -> str:
@@ -65,27 +32,172 @@ def format_pitch_input(pitch_input: PitchInput) -> str:
         Formatted string representation of the pitch input
     """
     return f"""
-Company: {pitch_input.company_name}
-Founders: {', '.join(pitch_input.founders)}
-Investment Ask: {pitch_input.initial_offer.amount} for {pitch_input.initial_offer.equity} equity
+Company: {pitch_input.company}
+Founders: {', '.join(pitch_input.founder)}
+Investment Offer: {pitch_input.offer}
 
 PROBLEM:
-Persona: {pitch_input.problem_story.persona}
-Core Problem: {pitch_input.problem_story.core_problem}
-Gap: {pitch_input.problem_story.hygiene_gap}
+{pitch_input.problem_summary}
 
 SOLUTION:
-Product: {pitch_input.product_solution.name}
-Category: {pitch_input.product_solution.product_category}
-Differentiator: {pitch_input.product_solution.key_differentiator}
-Application: {pitch_input.product_solution.application}
-Key Features: {', '.join(pitch_input.product_solution.features_keywords)}
-Key Benefits: {', '.join(pitch_input.product_solution.benefits_keywords)}
-
-CLOSING:
-Mission: {pitch_input.closing_theme.mission}
-Call to Action: {pitch_input.closing_theme.call_to_action}
+{pitch_input.solution_summary}
 """.strip()
+
+
+# ---------- EMBEDDING AND VECTORIZATION UTILITIES ----------
+
+def flatten_dict_to_text(d: Dict[str, Any], parent_key: str = "", sep: str = ": ") -> List[str]:
+    """
+    Recursively flatten a nested dictionary into 'key: value' text pairs.
+    
+    This preserves semantic context by keeping keys alongside their values,
+    which improves embedding quality for semantic similarity matching.
+    
+    Args:
+        d: Dictionary to flatten
+        parent_key: Parent key for nested structures (used in recursion)
+        sep: Separator between key and value
+        
+    Returns:
+        List of 'key: value' strings
+        
+    Example:
+        >>> data = {
+        ...     "company": "PDX Pet Design",
+        ...     "founder": ["Founder 1", "Founder 2"],
+        ...     "offer": "300,000 for 15%",
+        ...     "problem_summary": "Disposable cat toys are wasteful",
+        ...     "solution_summary": "Sustainable cat toys"
+        ... }
+        >>> flatten_dict_to_text(data)
+        [
+            "company: PDX Pet Design",
+            "founder: Founder 1, Founder 2",
+            "offer: 300,000 for 15%",
+            "problem_summary: Disposable cat toys are wasteful",
+            "solution_summary: Sustainable cat toys"
+        ]
+    """
+    items = []
+    
+    for key, value in d.items():
+        # Create hierarchical key for nested dicts (optional, can be simplified)
+        new_key = f"{parent_key}.{key}" if parent_key else key
+        
+        if isinstance(value, dict):
+            # Recursively flatten nested dictionaries
+            items.extend(flatten_dict_to_text(value, parent_key="", sep=sep))
+        elif isinstance(value, list):
+            # Join list items with commas
+            list_str = ", ".join(str(item) for item in value)
+            items.append(f"{key}{sep}{list_str}")
+        elif value is not None:  # Skip None values
+            items.append(f"{key}{sep}{value}")
+    
+    return items
+
+
+def pitch_input_to_embedding_text(pitch_input_dict: Dict[str, Any]) -> str:
+    """
+    Convert a pitch input dictionary to a flattened text string for embedding.
+    
+    This function is specifically designed for use with KNNFewShot vectorizers,
+    transforming complex nested pitch structures into semantically rich text
+    that preserves context through key-value pairs.
+    
+    Args:
+        pitch_input_dict: Dictionary containing pitch structure (from HF dataset)
+        
+    Returns:
+        Space-separated string of 'key: value' pairs suitable for embedding
+        
+    Example:
+        >>> pitch_dict = {
+        ...     "company": "PDX Pet Design",
+        ...     "founder": ["Founder 1"],
+        ...     "offer": "300,000 for 15%",
+        ...     "problem_summary": "Cat toys are wasteful",
+        ...     "solution_summary": "Sustainable cat toys"
+        ... }
+        >>> text = pitch_input_to_embedding_text(pitch_dict)
+        >>> # Returns: "company: PDX Pet Design founder: Founder 1 offer: 300,000 for 15% ..."
+    """
+    flattened_pairs = flatten_dict_to_text(pitch_input_dict)
+    return " ".join(flattened_pairs)
+
+
+def create_pitch_vectorizer(model_name: str = "all-MiniLM-L6-v2"):
+    """
+    Create a vectorizer function for KNNFewShot that handles complex pitch input dictionaries.
+    
+    This vectorizer converts nested pitch structures into embeddings by:
+    1. Flattening the input dict with keys (preserving semantic context)
+    2. Converting to a single text string
+    3. Encoding with SentenceTransformer
+    
+    Args:
+        model_name: SentenceTransformer model to use for embeddings
+                   Default: "all-MiniLM-L6-v2" (lightweight, 384 dimensions)
+                   Alternatives:
+                   - "all-mpnet-base-v2" (better quality, 768 dimensions)
+                   - "BAAI/bge-small-en-v1.5" (good for retrieval, 384 dimensions)
+        
+    Returns:
+        Callable vectorizer function that takes a dspy.Example and returns embeddings
+        
+    Example:
+        >>> vectorizer = create_pitch_vectorizer()
+        >>> from dspy import KNNFewShot
+        >>> optimizer = KNNFewShot(k=3, trainset=trainset, vectorizer=vectorizer)
+        >>> compiled_program = optimizer.compile(program, trainset=trainset)
+    
+    Note:
+        The vectorizer is created as a closure to avoid reloading the embedding
+        model for each example. The SentenceTransformer model is loaded once
+        and reused for all vectorization calls.
+    """
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError:
+        raise ImportError(
+            "sentence-transformers is required for KNNFewShot vectorization. "
+            "Install it with: pip install sentence-transformers"
+        )
+    
+    # Load the embedding model once (closure captures this)
+    print(f"Loading embedding model: {model_name}")
+    embedding_model = SentenceTransformer(model_name)
+    print(f"✓ Loaded embedding model with {embedding_model.get_sentence_embedding_dimension()} dimensions")
+    
+    def vectorize_example(example) -> Any:
+        """
+        Convert a DSPy Example with complex input dict to an embedding vector.
+        
+        Args:
+            example: dspy.Example with 'input' field containing pitch structure dict
+            
+        Returns:
+            numpy array of embeddings (shape: [embedding_dim])
+        """
+        try:
+            if hasattr(example, "input") and isinstance(example.input, dict):
+                # Convert complex input dict to flattened text
+                input_text = pitch_input_to_embedding_text(example.input)
+            else:
+                # Fallback for simple string inputs or unexpected formats
+                input_text = str(example)
+            
+            # Generate embedding
+            embedding = embedding_model.encode(input_text, convert_to_numpy=True)
+            return embedding
+            
+        except Exception as e:
+            print(f"Warning: Error vectorizing example: {e}")
+            # Return zero vector as fallback to avoid breaking the optimization
+            import numpy as np
+            return np.zeros(embedding_model.get_sentence_embedding_dimension())
+    
+    return vectorize_example
 
 
 # ---------- LOGGING AND SAVING UTILITIES ----------
@@ -285,7 +397,7 @@ def results_to_dataframe(
     for result in results:
         row = {
             "id": result["id"],
-            "company_name": result["input"].get("company_name", "Unknown"),
+            "company_name": result["input"].get("company", "Unknown"),
             "ground_truth": result["ground_truth"],
             "generated_pitch": result["generated_pitch"],
             "optimization_method": optimization_method,

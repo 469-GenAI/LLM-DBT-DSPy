@@ -8,14 +8,8 @@ from utils import PitchInput, format_pitch_input
 
 class PitchGenerationSig(dspy.Signature):
     """
-    Generate a compelling Shark Tank pitch from structured input.
-    
-    The pitch should:
-    - Start with an engaging introduction of the founders and company
-    - Present the investment ask clearly
-    - Tell a story about the problem from the customer's perspective
-    - Introduce the solution with compelling details
-    - End with a strong call to action for the Sharks
+    Generate a compelling Shark Tank pitch from facts.
+
     """
     
     pitch_data: str = dspy.InputField(
@@ -35,12 +29,14 @@ class StructuredPitchProgram(dspy.Module):
         super().__init__()
         self.generate_pitch = dspy.ChainOfThought(PitchGenerationSig)
     
-    def forward(self, input: dict):
+    def forward(self, input: dict, **kwargs):
         """
         Generate a pitch from structured input.
         
         Args:
             input: Dictionary containing structured pitch data
+            **kwargs: Additional arguments passed to underlying predictors
+                     (e.g., config={"rollout_id": "...", "temperature": 1.0})
             
         Returns:
             dspy.Prediction with pitch field
@@ -52,7 +48,8 @@ class StructuredPitchProgram(dspy.Module):
             print(f"Warning: Could not parse input as PitchInput: {e}")
             formatted_input = json.dumps(input, indent=2)
         
-        prediction = self.generate_pitch(pitch_data=formatted_input)
+        # Pass kwargs (including config) to the underlying predictor
+        prediction = self.generate_pitch(pitch_data=formatted_input, **kwargs)
         return prediction
 
 
@@ -75,17 +72,23 @@ class PitchGenerator:
         self.program = StructuredPitchProgram()
         print(f"✓ PitchGenerator initialized with model: {self.lm.model}")
     
-    def generate(self, input_data: dict):
+    def generate(self, input_data: dict, config: dict = None):
         """
         Generate a pitch using the assigned generator model.
         
         Args:
             input_data: Dictionary with structured pitch data
+            config: Optional config dict with rollout_id and temperature for cache control
             
         Returns:
             dspy.Prediction with pitch field
         """
-        with dspy.context(lm=self.lm):
+        # Build context parameters
+        context_params = {"lm": self.lm}
+        if config:
+            context_params.update(config)
+        
+        with dspy.context(**context_params):
             return self.program(input=input_data)
     
     def __call__(self, input_data: dict):
