@@ -373,14 +373,19 @@ def extract_pitch_from_json(pitch_json: str) -> str:
 
 def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example]):
     name = (name or "none").lower()
-    if name in ("mipro", "miprov2", "mipro_v2"):
+    if name == "mipro":
         return MIPROv2(
             metric=metric_fn,
-            max_bootstrapped_demos=6,
-            num_candidates=3,
-            max_train_iters=2,
-            verbose=True,
+            init_temperature=1.0,
         )
+        compiled_program = optimizer.compile(
+            program,
+            trainset=trainset,
+            # num_trials=10,
+            max_bootstrapped_demos=4,
+            max_labeled_demos=4
+        )
+        return compiled_program
     if name in ("bootstrap", "bootstrapfewshot", "bfs"):
         return BootstrapFewShot(
             metric=metric_fn,
