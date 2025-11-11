@@ -39,6 +39,7 @@ from dspy.teleprompt import (
     BootstrapFewShotWithRandomSearch,
     KNNFewShot,
     MIPROv2,
+    SIMBA
 )
 from pydantic import ValidationError
 
@@ -377,7 +378,7 @@ def extract_pitch_from_json(pitch_json: str) -> str:
     return pitch_json
 
 
-def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example]):
+def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example], simba_metric_fn):
     """
     Resolve the requested DSPy teleprompter optimizer based on CLI flag.
     """
@@ -393,6 +394,9 @@ def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example]):
 
     if optimizer_name == "mipro":
         return MIPROv2(metric=metric_fn, init_temperature=1.0)
+
+    if optimizer_name == "simba":
+        return SIMBA(metric=simba_metric_fn, init_temperature=1.0)
 
     if optimizer_name == "bootstrap":
         # BootstrapFewShot optimizes demonstrations via iterative selection.
@@ -436,6 +440,34 @@ def make_metric(pitch_evaluator: PitchEvaluator):
         return float(score)
     return metric
 
+def _simba_metric(pitch_evaluator: PitchEvaluator):
+    """
+    Metric(example, pred, trace) -> dspy.Prediction with score∈[0,1].
+    Supplies SIMBA with feedback so it can refine prompts.
+    """
+    def metric(example: dspy.Example, pred: dspy.Prediction, trace=None) -> dspy.Prediction:
+        facts = example.facts
+        gt_pitch = getattr(example, "ground_truth_pitch", "") or ""
+        generated_pitch = getattr(pred, "pitch", "") or ""
+        if not generated_pitch:
+            generated_pitch = extract_pitch_from_json(getattr(pred, "pitch_json", "") or "")
+
+        assessment = pitch_evaluator.get_full_assessment(
+            pitch_facts=facts,
+            ground_truth_pitch=gt_pitch,
+            generated_pitch=generated_pitch
+        )
+        score = float(assessment["final_score"])
+        feedback_content = [
+            f'Factual score: {assessment["factual_score"]:.2f}',
+            f'Narrative score: {assessment["narrative_score"]:.2f}',
+            f'Style score: {assessment["style_score"]:.2f}',
+            f'Reasoning: {assessment["reasoning"]}'
+        ]
+        feedback = "\n".join(feedback_content)
+        return dspy.Prediction(score=score, feedback=feedback)
+    return metric
+
 
 # ------------- CLI -------------
 
@@ -443,7 +475,7 @@ def main():
     parser = argparse.ArgumentParser(description="DSPy MoA Pitch Generator")
     parser.add_argument("--dataset-name", type=str, default="isaidchia/sharktank_pitches_modified",
                         help="HuggingFace dataset containing structured Shark Tank pitches")
-    parser.add_argument("--optimization", type=str, default="none", choices=["none", "mipro", "bootstrap", "bootstrap_random", "knn"])
+    parser.add_argument("--optimization", type=str, default="none", choices=["none", "mipro", "simba", "bootstrap", "bootstrap_random", "knn"])
     parser.add_argument("--train-size", type=int, default=20)
     parser.add_argument("--test-size", type=int, default=10)
     parser.add_argument("--num-agents", type=int, default=3)
@@ -504,9 +536,10 @@ def main():
 
     # Metric for optimization/eval
     metric_fn = make_metric(pitch_evaluator)
+    simba_metric_fn = _simba_metric(pitch_evaluator)
 
     # Optimize if requested
-    teleprompter = resolve_optimizer(args.optimization, metric_fn, trainset)
+    teleprompter = resolve_optimizer(args.optimization, metric_fn, trainset, simba_metric_fn)
     mlflow_run_id = None
     if teleprompter is not None:
         print(f"[compile] Optimizing with {teleprompter.__class__.__name__} ...")
