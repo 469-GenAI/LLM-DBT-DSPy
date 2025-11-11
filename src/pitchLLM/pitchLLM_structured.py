@@ -456,19 +456,6 @@ if __name__ == "__main__":
         mlflow_run_id = capture_mlflow_run_id(DATABRICKS_PATH, run_name)
         # mlflow_run_id = None
         
-        # Save program with metadata (refactored)
-        if args.save_program:
-            save_program_with_metadata(
-                program=program,
-                save_dir="optimized_programs",
-                optimization_method=args.optimization,
-                generator_model=generator_lm.model,
-                evaluator_model=evaluator_lm.model,
-                trainset_size=len(trainset),
-                testset_size=len(testset),
-                run_name=run_name,
-                mlflow_run_id=mlflow_run_id
-            )
     else:
         print("\n3. Running baseline (no optimization)...")
         # For baseline, no MLflow run
@@ -490,7 +477,7 @@ if __name__ == "__main__":
         evaluator_model=evaluator_lm.model
     )
     
-    save_results_csv(
+    results_csv_path, results_timestamp = save_results_csv(
         df=df,
         optimization_method=args.optimization,
         run_name=run_name,
@@ -504,6 +491,22 @@ if __name__ == "__main__":
             generator_model=generator_lm.model,
             evaluator_model=evaluator_lm.model,
             optimization_method=args.optimization
+        )
+
+    # Persist optimized program with enriched metadata after outputs exist
+    if args.save_program and args.optimization != "none":
+        save_program_with_metadata(
+            program=program,
+            save_dir="optimized_programs",
+            optimization_method=args.optimization,
+            generator_model=generator_lm.model,
+            evaluator_model=evaluator_lm.model,
+            trainset_size=len(trainset),
+            testset_size=len(testset),
+            run_name=run_name,
+            mlflow_run_id=mlflow_run_id,
+            results_csv_filename=Path(results_csv_path).name,
+            results_timestamp=results_timestamp
         )
     
     print("\n✓ Done!")

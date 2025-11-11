@@ -450,6 +450,9 @@ def main():
     # Evaluate on test set
     scores: List[float] = []
     results: List[Dict[str, Any]] = []
+    # Track artifact outputs for downstream metadata enrichment
+    results_csv_path: Optional[str] = None
+    results_timestamp: Optional[str] = None
     print("[eval] Running on test set...")
     run_timestamp = int(time.time())
 
@@ -506,7 +509,7 @@ def main():
             generator_model=args.generator_model,
             evaluator_model=args.evaluator_model,
         )
-        csv_path = save_results_csv(
+        results_csv_path, results_timestamp = save_results_csv(
             df=df,
             optimization_method=args.optimization,
             run_name=args.run_name,
@@ -519,7 +522,7 @@ def main():
             evaluator_model=args.evaluator_model,
             optimization_method=args.optimization,
         )
-        print(f"[save] Results CSV: {Path(csv_path).resolve()}")
+        print(f"[save] Results CSV: {Path(results_csv_path).resolve()}")
 
     # Save compiled/tuned program
     if args.save_program:
@@ -533,6 +536,8 @@ def main():
             testset_size=len(testset),
             run_name=args.run_name,
             mlflow_run_id=mlflow_run_id,
+            results_csv_filename=Path(results_csv_path).name if results_csv_path else None,
+            results_timestamp=results_timestamp,
         )
         print(f"[save] Program saved to {Path(saved_program_path).resolve()}")
 

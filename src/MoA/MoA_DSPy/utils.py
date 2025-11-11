@@ -3,7 +3,7 @@
 Utility models and helper functions for the structured pitch generation system.
 These models match the input format from the HuggingFace sharktank_pitches dataset.
 """
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Tuple
 from pydantic import BaseModel, Field
 import mlflow
 import pandas as pd
@@ -273,7 +273,8 @@ def generate_output_filename(
     optimization_method: str,
     run_name: str,
     mlflow_run_id: Optional[str] = None,
-    file_type: str = "csv"
+    file_type: str = "csv",
+    timestamp: Optional[str] = None
 ) -> str:
     """
     Generate a consistent filename for results or programs.
@@ -283,11 +284,14 @@ def generate_output_filename(
         run_name: The run name
         mlflow_run_id: Optional MLflow run_id to include
         file_type: File extension (csv, json, etc.)
+        timestamp: Optional timestamp string for uniqueness
         
     Returns:
         Formatted filename
     """
     filename = f"structured_pitch_results_{optimization_method}_{run_name}"
+    if timestamp:
+        filename += f"_{timestamp}"
     if mlflow_run_id:
         filename += f"_{mlflow_run_id[:8]}"  # Add first 8 chars of run_id
     filename += f".{file_type}"
@@ -303,7 +307,9 @@ def save_program_with_metadata(
     trainset_size: int,
     testset_size: int,
     run_name: str,
-    mlflow_run_id: Optional[str] = None
+    mlflow_run_id: Optional[str] = None,
+    results_csv_filename: Optional[str] = None,
+    results_timestamp: Optional[str] = None
 ) -> str:
     """
     Save a DSPy program with comprehensive metadata.
@@ -318,6 +324,8 @@ def save_program_with_metadata(
         testset_size: Size of test set
         run_name: The run name
         mlflow_run_id: Optional MLflow run_id
+        results_csv_filename: Optional CSV filename associated with this run
+        results_timestamp: Optional timestamp aligned with the CSV artifact
         
     Returns:
         Path to the saved program
@@ -351,17 +359,20 @@ def save_program_with_metadata(
     }
     
     # Add tracking info (MLflow run_id and CSV filename reference)
-    csv_filename = generate_output_filename(
-        optimization_method,
-        run_name,
-        mlflow_run_id,
-        "csv"
+    resolved_timestamp = results_timestamp or datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_filename = results_csv_filename or generate_output_filename(
+        optimization_method=optimization_method,
+        run_name=run_name,
+        mlflow_run_id=mlflow_run_id,
+        file_type="csv",
+        timestamp=resolved_timestamp
     )
     
     saved_data["metadata"]["tracking"] = {
         "mlflow_run_id": mlflow_run_id,
         "results_csv_file": csv_filename,
-        "run_name": run_name
+        "run_name": run_name,
+        "results_timestamp": resolved_timestamp
     }
     
     # Save back with enhanced metadata
@@ -426,7 +437,7 @@ def save_results_csv(
     run_name: str,
     mlflow_run_id: Optional[str] = None,
     output_dir: Union[str, Path] = "MoA/results"
-) -> str:
+) -> Tuple[str, str]:
     """
     Save results DataFrame to CSV with consistent naming.
     
@@ -435,18 +446,21 @@ def save_results_csv(
         optimization_method: Optimization method used
         run_name: The run name
         mlflow_run_id: Optional MLflow run_id
+        output_dir: Directory where results are stored
         
     Returns:
-        Path to saved CSV file
+        Tuple containing the saved CSV path and timestamp used in the filename
     """
     output_dir_path = Path(output_dir)
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = output_dir_path / generate_output_filename(
-        optimization_method,
-        run_name,
-        mlflow_run_id,
-        "csv"
+        optimization_method=optimization_method,
+        run_name=run_name,
+        mlflow_run_id=mlflow_run_id,
+        file_type="csv",
+        timestamp=run_timestamp
     )
     
     df.to_csv(output_file, index=False)
@@ -455,7 +469,7 @@ def save_results_csv(
     if mlflow_run_id:
         print(f"✓ MLflow Run ID: {mlflow_run_id}")
     
-    return output_file
+    return str(output_file), run_timestamp
 
 
 def print_evaluation_summary(
