@@ -3,13 +3,14 @@
 Utility models and helper functions for the structured pitch generation system.
 These models match the input format from the HuggingFace sharktank_pitches dataset.
 """
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Union, Tuple
 from pydantic import BaseModel, Field
 import mlflow
 import pandas as pd
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 
 class PitchInput(BaseModel):
@@ -323,14 +324,14 @@ def save_program_with_metadata(
         testset_size: Size of test set
         run_name: The run name
         mlflow_run_id: Optional MLflow run_id
-        results_csv_filename: Optional CSV filename for this run
+        results_csv_filename: Optional CSV filename associated with this run
         results_timestamp: Optional timestamp aligned with the CSV artifact
         
     Returns:
         Path to the saved program
     """
     os.makedirs(save_dir, exist_ok=True)
-    save_path = f"{save_dir}/pitch_{optimization_method}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    save_path = f"{save_dir}/pitch_MoA_{optimization_method}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
     # Save the program first
     program.save(save_path)
@@ -434,7 +435,8 @@ def save_results_csv(
     df: pd.DataFrame,
     optimization_method: str,
     run_name: str,
-    mlflow_run_id: Optional[str] = None
+    mlflow_run_id: Optional[str] = None,
+    output_dir: Union[str, Path] = "MoA/results"
 ) -> Tuple[str, str]:
     """
     Save results DataFrame to CSV with consistent naming.
@@ -444,12 +446,16 @@ def save_results_csv(
         optimization_method: Optimization method used
         run_name: The run name
         mlflow_run_id: Optional MLflow run_id
+        output_dir: Directory where results are stored
         
     Returns:
-        Tuple containing path to saved CSV file and timestamp used
+        Tuple containing the saved CSV path and timestamp used in the filename
     """
+    output_dir_path = Path(output_dir)
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = generate_output_filename(
+    output_file = output_dir_path / generate_output_filename(
         optimization_method=optimization_method,
         run_name=run_name,
         mlflow_run_id=mlflow_run_id,
@@ -463,7 +469,7 @@ def save_results_csv(
     if mlflow_run_id:
         print(f"✓ MLflow Run ID: {mlflow_run_id}")
     
-    return output_file, run_timestamp
+    return str(output_file), run_timestamp
 
 
 def print_evaluation_summary(
