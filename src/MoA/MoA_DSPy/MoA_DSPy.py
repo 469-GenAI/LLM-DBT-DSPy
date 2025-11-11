@@ -394,11 +394,11 @@ def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example]):
     if optimizer_name == "mipro":
         return MIPROv2(metric=metric_fn, init_temperature=1.0)
 
-    if optimizer_name in ("bootstrap", "bootstrapfewshot", "bfs"):
+    if optimizer_name == "bootstrap":
         # BootstrapFewShot optimizes demonstrations via iterative selection.
         return BootstrapFewShot(metric=metric_fn, max_bootstrapped_demos=4, max_labeled_demos=4)
 
-    if optimizer_name in ("bootstrap_random", "bootstrapfewshot_random"):
+    if optimizer_name == "bootstrap_random":
         # Randomized search extends BootstrapFewShot with candidate exploration.
         return BootstrapFewShotWithRandomSearch(
             metric=metric_fn,
