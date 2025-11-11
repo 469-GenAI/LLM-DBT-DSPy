@@ -392,7 +392,7 @@ def main():
 
     parser.add_argument("--generator-model", type=str, default="groq/llama-3.3-70b-versatile",
                         help="Generator LM (LiteLLM-style id), e.g., groq/llama-3.3-70b-versatile")
-    parser.add_argument("--temperature", type=float, default=0.3)
+    parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-tokens", type=int, default=2048)
 
     parser.add_argument("--evaluator-model", type=str, default="groq/openai/gpt-oss-120b",
@@ -421,7 +421,7 @@ def main():
     pitch_generator = PitchGenerator(lm=gen_lm)
 
     # Build separate evaluator (with its own LM to avoid interference)
-    eval_lm = dspy.LM(model=args.eval_lm_model, temperature=0.2, max_tokens=2048)
+    eval_lm = dspy.LM(model=args.eval_lm_model, temperature=0.1, max_tokens=2048)
     pitch_evaluator = PitchEvaluator(lm=eval_lm)
 
     # Load structured dataset and convert to MoA-ready examples
@@ -476,7 +476,7 @@ def main():
         with dspy.context(
             lm=pitch_evaluator.lm,
             rollout_id=f"{rollout_config['rollout_id']}_eval",
-            temperature=0.2,
+            temperature=0.1,
         ):
             assessment = pitch_evaluator.get_full_assessment(
                 pitch_facts=example.facts,
