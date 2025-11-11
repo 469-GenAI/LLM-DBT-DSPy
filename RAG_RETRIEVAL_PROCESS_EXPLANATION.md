@@ -1,10 +1,40 @@
-# RAG Retrieval Process - Complete Explanation
+# RAG Pipeline - Complete Guide
 
-## Your Question
+A comprehensive guide to understanding, running, and optimizing the RAG (Retrieval-Augmented Generation) pipeline for Shark Tank pitch generation.
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [How RAG Works](#how-rag-works)
+3. [Prerequisites](#prerequisites)
+4. [Quick Start](#quick-start)
+5. [Running the RAG Pipeline](#running-the-rag-pipeline)
+6. [Optimizing RAG with DSPy](#optimizing-rag-with-dspy)
+7. [Comparing RAG Strategies](#comparing-rag-strategies)
+8. [Understanding Results](#understanding-results)
+9. [Troubleshooting](#troubleshooting)
+
+---
+
+## Overview
+
+This RAG pipeline enhances LLM pitch generation by:
+- **Retrieving** similar successful pitches from a vector database
+- **Using** retrieved examples as context for style and structure
+- **Generating** new pitches that learn from successful patterns
+- **Evaluating** quality using LLM-as-a-Judge methodology
+
+---
+
+## How RAG Works
+
+### Your Question
 
 > "Why is the retrieval a query of the product? I thought RAG is taking the entire input of a pitch from test.jsonl."
 
-## Answer: How RAG Actually Works
+### Answer: How RAG Actually Works
 
 RAG does NOT take the entire pitch from test.jsonl. Instead, it:
 
@@ -320,4 +350,470 @@ results = vector_store.query(
 - **Compares** generated vs ground truth OUTPUT for evaluation
 
 This is the standard RAG approach: use structured input to retrieve relevant examples, then generate new content using those examples as context.
+
+---
+
+## Prerequisites
+
+### Required Files
+
+- `data/hf (new)/train.jsonl` - Training data (196 pitches)
+- `data/hf (new)/test.jsonl` - Test data (49 pitches)
+- `data/hf (new)/category_mapping.json` - Category classifications (optional but recommended)
+
+### Environment Setup
+
+1. **Activate virtual environment:**
+   ```bash
+   source venv/bin/activate
+   ```
+
+2. **Set environment variables:**
+   Create a `.env` file in the project root:
+   ```bash
+   GROQ_API_KEY=your_groq_api_key_here
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install dspy-ai chromadb pandas python-dotenv tqdm pydantic
+   ```
+
+### Verify Setup
+
+```bash
+python -c "import dspy; import chromadb; print('✓ Dependencies installed')"
+```
+
+---
+
+## Quick Start
+
+### 1. Classify Categories (First Time Only)
+
+If you haven't classified categories yet:
+
+```bash
+python src/pitchLLM/rag/category_classifier.py
+```
+
+This creates `data/hf (new)/category_mapping.json` with category assignments for all pitches.
+
+### 2. Index Training Data
+
+Index the training data into the vector database:
+
+```bash
+python src/pitchLLM/reindex_with_categories.py
+```
+
+This will:
+- Load `train.jsonl` (196 pitches)
+- Load `category_mapping.json` (if available)
+- Create embeddings and store in ChromaDB
+- Verify indexing completed successfully
+
+**Output:** Vector database at `chromadb_data/` directory
+
+### 3. Run Quick Test
+
+Test RAG generation on a single product:
+
+```bash
+python src/pitchLLM/test_rag_comparison.py
+```
+
+This generates pitches using RAG and Non-RAG approaches for comparison.
+
+---
+
+## Running the RAG Pipeline
+
+### Option 1: Compare RAG vs Non-RAG
+
+Run a comprehensive comparison:
+
+```bash
+python src/pitchLLM/evaluate_rag.py
+```
+
+**What it does:**
+- Loads test data from `test.jsonl`
+- Generates pitches with RAG (using retrieved examples)
+- Generates pitches without RAG (baseline)
+- Evaluates quality using LLM-as-a-Judge
+- Generates comparison report
+
+**Output:**
+- `rag_outputs/rag_output_{timestamp}.json` - Detailed results
+- Console output with quality scores and metrics
+
+**Configuration:**
+Edit `evaluate_rag.py` to adjust:
+- `test_size`: Number of test examples (default: 20)
+- `top_k`: Number of retrieved examples (default: 5)
+- Retrieval strategy (default: HYBRID_PRIORITIZE)
+
+### Option 2: Compare Multiple RAG Strategies
+
+Compare all three retrieval strategies:
+
+```bash
+python src/pitchLLM/compare_rag_strategies.py
+```
+
+**Strategies compared:**
+1. **Pure Semantic** - Pure similarity-based retrieval
+2. **Hybrid Filter** - Semantic + filter by successful deals
+3. **Hybrid Prioritize** - Semantic + prioritize successful deals + same category
+4. **Non-RAG** - Baseline without retrieval
+
+**Output:**
+- `rag_comparison_results/detailed_results_{timestamp}.csv` - Per-example results
+- `rag_comparison_results/summary_{timestamp}.json` - Summary metrics
+- `rag_comparison_results/comparison_report_{timestamp}.md` - Markdown report
+
+**Example output:**
+```
+Pure_Semantic:
+  Quality Score: 0.629
+  Success Rate: 100.0%
+  Avg Latency: 0.14s
+
+Hybrid_Filter_Deals:
+  Quality Score: 0.630
+  Success Rate: 100.0%
+  Avg Latency: 0.12s
+
+Hybrid_Prioritize:
+  Quality Score: 0.604
+  Success Rate: 100.0%
+  Avg Latency: 0.13s
+
+Non_RAG:
+  Quality Score: 0.624
+  Success Rate: 100.0%
+  Avg Latency: 0.00s
+```
+
+---
+
+## Optimizing RAG with DSPy
+
+Optimize how the RAG program uses retrieved examples using DSPy's MIPROv2 optimizer.
+
+### Run Optimization
+
+```bash
+python src/pitchLLM/optimize_rag.py
+```
+
+**What it does:**
+1. Loads train/val/test sets (all available data)
+2. Creates baseline RAG program
+3. Evaluates baseline performance
+4. Optimizes RAG program with MIPROv2
+5. Evaluates optimized performance
+6. Compares: Optimized RAG vs Baseline RAG vs Non-RAG
+
+**Configuration:**
+Edit `optimize_rag.py` to adjust:
+- `train_size`: Training examples (default: None = all ~196)
+- `val_size`: Validation examples (default: 16)
+- `test_size`: Test examples (default: None = all ~49)
+- `mipro_mode`: Optimization intensity - `"light"`, `"medium"`, or `"heavy"` (default: `"light"`)
+
+**Time & Cost:**
+- Light mode: ~15-30 minutes, ~$2-5
+- Medium mode: ~30-60 minutes, ~$5-10
+- Heavy mode: ~60-120 minutes, ~$10-20
+
+**Output:**
+- `rag_optimization_results/optimization_results_{timestamp}.json` - Full results
+
+**Example output:**
+```
+Method                    Quality Score   Success Rate   
+-------------------------------------------------------
+Non-RAG                   0.609           100.0%         
+Baseline RAG              0.643           100.0%         
+Optimized RAG             0.643           100.0%         
+
+RAG Improvement: +0.0% (Optimized vs Baseline)
+vs Non-RAG: +5.5% improvement
+```
+
+### Understanding Optimization
+
+**What MIPROv2 optimizes:**
+- **Instructions**: How to use retrieved examples in prompts
+- **Few-shot examples**: Which examples to include and how to format them
+- **Prompt structure**: Best way to combine context with product data
+
+**What it doesn't optimize:**
+- Retrieval strategy (still uses HYBRID_PRIORITIZE)
+- Number of retrieved examples (still uses top_k=5)
+- Vector database contents (indexing is separate)
+
+**When optimization helps:**
+- Baseline RAG underperforms
+- You want to improve prompt engineering automatically
+- You have sufficient training data (100+ examples)
+
+**When optimization may not help:**
+- Baseline RAG already performs well
+- Limited training data (<50 examples)
+- You want faster iteration (optimization takes time)
+
+---
+
+## Comparing RAG Strategies
+
+### Strategy Comparison Script
+
+```bash
+python src/pitchLLM/compare_rag_strategies.py
+```
+
+### Manual Strategy Testing
+
+Test individual strategies:
+
+```python
+from pitchLLM.models.rag_generator import RAGPitchGenerator
+from pitchLLM.rag.retriever import RetrievalStrategy
+import dspy
+
+# Setup
+lm = dspy.LM("groq/llama-3.3-70b-versatile", api_key=GROQ_API_KEY)
+
+# Pure Semantic
+generator = RAGPitchGenerator(
+    lm=lm,
+    retrieval_strategy=RetrievalStrategy.PURE_SEMANTIC,
+    top_k=5
+)
+
+# Hybrid Filter (successful deals only)
+generator = RAGPitchGenerator(
+    lm=lm,
+    retrieval_strategy=RetrievalStrategy.HYBRID_FILTER,
+    filter_successful_deals=True,
+    top_k=5
+)
+
+# Hybrid Prioritize (recommended)
+generator = RAGPitchGenerator(
+    lm=lm,
+    retrieval_strategy=RetrievalStrategy.HYBRID_PRIORITIZE,
+    prioritize_successful=True,
+    prioritize_category=True,
+    top_k=5
+)
+```
+
+---
+
+## Understanding Results
+
+### Quality Score
+
+The quality score (0.0-1.0) is a weighted composite:
+
+- **Factual Score (40%)**: Accuracy of product information
+- **Narrative Score (40%)**: Story structure and flow
+- **Style Score (20%)**: Shark Tank presentation style
+
+**Interpretation:**
+- `0.4-0.6`: Baseline performance
+- `0.6-0.8`: Good performance
+- `0.8-0.9`: Excellent performance
+- `0.9+`: Exceptional performance
+
+### Success Rate
+
+Percentage of pitches generated without errors (should be 100% in normal operation).
+
+### Latency
+
+Time to generate one pitch (includes retrieval + generation).
+
+### Retrieval Quality
+
+- **Retrieved**: Number of examples found (should match `top_k`)
+- **Similarity**: Average similarity score of retrieved examples (higher = more relevant)
+
+---
+
+## Troubleshooting
+
+### Vector Database Issues
+
+**Problem:** ChromaDB corruption errors
+```bash
+pyo3_runtime.PanicException: range start index out of range
+```
+
+**Solution:** Re-index the database
+```bash
+python src/pitchLLM/reindex_with_categories.py
+```
+
+This automatically resets corrupted databases.
+
+### Missing Categories
+
+**Problem:** Categories not found in metadata
+```
+⚠️ Category mapping file not found
+```
+
+**Solution:** Run category classifier first
+```bash
+python src/pitchLLM/rag/category_classifier.py
+```
+
+### Import Errors
+
+**Problem:** `ModuleNotFoundError: No module named 'dspy'`
+
+**Solution:** Ensure virtual environment is activated
+```bash
+source venv/bin/activate
+python --version  # Should show Python 3.11+
+```
+
+### Rate Limiting
+
+**Problem:** `RateLimitError: Rate limit reached`
+
+**Solution:** 
+- Wait a few minutes and retry
+- Reduce `test_size` in evaluation scripts
+- Use rate limiting delays (already implemented)
+
+### Low Quality Scores
+
+**Possible causes:**
+1. **Insufficient training data**: Need at least 50+ examples
+2. **Poor retrieval**: Retrieved examples not relevant
+3. **Model issues**: Check API key and model availability
+
+**Debugging:**
+```python
+# Check retrieval quality
+from pitchLLM.rag.retriever import PitchRetriever
+
+retriever = PitchRetriever()
+similar = retriever.retrieve_similar_pitches(
+    product_data=test_product,
+    top_k=5,
+    include_scores=True
+)
+
+# Print retrieved examples
+for pitch in similar:
+    print(f"{pitch['product_name']}: {pitch['similarity_score']:.3f}")
+```
+
+---
+
+## Pipeline Execution Order
+
+### First-Time Setup
+
+```bash
+# 1. Classify categories
+python src/pitchLLM/rag/category_classifier.py
+
+# 2. Index training data
+python src/pitchLLM/reindex_with_categories.py
+
+# 3. Verify setup
+python src/pitchLLM/test_rag_comparison.py
+```
+
+### Regular Usage
+
+```bash
+# Option A: Quick comparison
+python src/pitchLLM/evaluate_rag.py
+
+# Option B: Strategy comparison
+python src/pitchLLM/compare_rag_strategies.py
+
+# Option C: Optimization (takes longer)
+python src/pitchLLM/optimize_rag.py
+```
+
+### After Data Updates
+
+If you update `train.jsonl` or `category_mapping.json`:
+
+```bash
+# Re-index with new data
+python src/pitchLLM/reindex_with_categories.py
+```
+
+---
+
+## File Structure
+
+```
+src/pitchLLM/
+├── rag/
+│   ├── category_classifier.py    # Classify pitches into categories
+│   ├── data_indexer.py           # Index data into vector DB
+│   ├── retriever.py              # RAG retrieval logic
+│   └── vector_store.py           # ChromaDB wrapper
+├── models/
+│   ├── rag_generator.py          # RAG-enhanced generator
+│   ├── generator.py               # Non-RAG generator
+│   └── evaluator.py              # LLM-as-a-Judge evaluator
+├── evaluate_rag.py               # RAG vs Non-RAG comparison
+├── compare_rag_strategies.py     # Multi-strategy comparison
+├── optimize_rag.py               # DSPy optimization
+└── reindex_with_categories.py    # Re-index vector DB
+
+data/hf (new)/
+├── train.jsonl                   # Training data (196 pitches)
+├── test.jsonl                    # Test data (49 pitches)
+└── category_mapping.json         # Category assignments
+
+rag_comparison_results/            # Strategy comparison outputs
+rag_optimization_results/          # Optimization outputs
+chromadb_data/                     # Vector database storage
+```
+
+---
+
+## Next Steps
+
+1. **Experiment with retrieval strategies**: Try different `top_k` values and strategies
+2. **Optimize prompts**: Use MIPROv2 to automatically improve prompt engineering
+3. **Analyze results**: Review detailed CSV outputs to understand what works best
+4. **Fine-tune categories**: Adjust category taxonomy if needed
+5. **Scale up**: Increase test size for more reliable metrics
+
+---
+
+## Additional Resources
+
+- **Architecture Visualization**: See `ARCHITECTURE_VISUALIZATION.md`
+- **Pipeline Instructions**: See `PIPELINE_INSTRUCTIONS.md`
+- **RAG Optimization Guide**: See `RAG_OPTIMIZATION_GUIDE.md`
+
+---
+
+## Summary
+
+This RAG pipeline:
+- ✅ Uses product INPUT (not pitch OUTPUT) to query vector database
+- ✅ Retrieves similar pitches from training data
+- ✅ Generates new pitches using retrieved examples as context
+- ✅ Evaluates quality using LLM-as-a-Judge
+- ✅ Supports multiple retrieval strategies
+- ✅ Can be optimized with DSPy MIPROv2
+
+**Key Insight:** RAG queries with product information to find semantically similar products, then uses their pitches as style examples to generate new content. This avoids data leakage while learning from successful patterns.
 
