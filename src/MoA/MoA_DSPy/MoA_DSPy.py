@@ -19,13 +19,19 @@
 #     ├─ AssessPitch.py     (provides AssessPitchQuality signature)
 #     └─ generator.py       (provides PitchEvaluator module wrapper)
 # ------------------------------------------------------------
-
+import os
+import json
+import time
+from pathlib import Path
+from datetime import datetime
 import json
 import argparse
 import random
 import textwrap
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
+from tqdm import tqdm
+
 
 import dspy
 from dspy.teleprompt import MIPROv2, BootstrapFewShot
@@ -44,8 +50,10 @@ from utils import (
     print_evaluation_summary,
     save_program_with_metadata,
 )
-import os
 from dotenv import load_dotenv
+import mlflow
+import warnings
+import logging
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -54,14 +62,21 @@ BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
 
 RESULTS_DIR = Path("MoA/results")
 PROGRAMS_DIR = Path("MoA/optimised_programs")
-import os
-from dotenv import load_dotenv
+# Suppress MLflow trace ID collision warnings
+warnings.filterwarnings("ignore", message="Failed to send trace to MLflow backend")
+logging.getLogger("mlflow.tracing.export.mlflow_v3").setLevel(logging.ERROR)
 
-load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
-BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
-# ------------- Data Preparation -------------
+# comment out if you want to stop tracking
+if DATABRICKS_PATH:
+    run_name = f"pitchLLM_structured_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    mlflow.set_experiment(DATABRICKS_PATH + run_name)
+    mlflow.dspy.autolog(
+        log_compiles=True,    # Track optimization process
+        log_evals=True,       # Track evaluation results
+        log_traces_from_compile=True  # Track program traces during optimization
+    )
+else:
+    print("No DATABRICKS_PATH found in .env")
 
 def convert_examples_to_moa_inputs(examples: List[dspy.Example]) -> List[dspy.Example]:
     """
@@ -385,6 +400,12 @@ def main():
     if args.seed is not None:
         random.seed(args.seed)
 
+    predictions_path = Path(args.dump_predictions)
+    predictions_path.parent.mkdir(parents=True, exist_ok=True)
+
+    program_save_dir = Path(args.save_dir)
+    program_save_dir.mkdir(parents=True, exist_ok=True)
+
     # Configure generator LM
     gen_lm = dspy.LM(model=args.lm_model, temperature=args.temperature, max_tokens=args.max_tokens)
     dspy.configure(lm=gen_lm)
@@ -451,7 +472,7 @@ def main():
     print(f"[eval] Test size={len(testset)} | Avg Judge Score (0-1) = {avg_score:.3f}")
 
     # Dump predictions (+ score and assessment)
-    out_path = Path(args.dump_predictions)
+    out_path = predictions_path
     with out_path.open("w", encoding="utf-8") as handle:
         for row in results:
             payload = {
@@ -477,6 +498,7 @@ def main():
             df=df,
             optimization_method=args.optimization,
             run_name=args.run_name,
+            output_dir=predictions_path.parent,
         )
         print_evaluation_summary(
             df=df,
@@ -490,7 +512,7 @@ def main():
     if args.save_program:
         saved_program_path = save_program_with_metadata(
             program=program,
-            save_dir=args.save_dir,
+            save_dir=str(program_save_dir),
             optimization_method=args.optimization,
             generator_model=args.lm_model,
             evaluator_model=args.eval_lm_model,

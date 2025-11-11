@@ -3,13 +3,14 @@
 Utility models and helper functions for the structured pitch generation system.
 These models match the input format from the HuggingFace sharktank_pitches dataset.
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 import mlflow
 import pandas as pd
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 
 class PitchInput(BaseModel):
@@ -423,7 +424,8 @@ def save_results_csv(
     df: pd.DataFrame,
     optimization_method: str,
     run_name: str,
-    mlflow_run_id: Optional[str] = None
+    mlflow_run_id: Optional[str] = None,
+    output_dir: Union[str, Path] = "MoA/results"
 ) -> str:
     """
     Save results DataFrame to CSV with consistent naming.
@@ -437,7 +439,10 @@ def save_results_csv(
     Returns:
         Path to saved CSV file
     """
-    output_file = generate_output_filename(
+    output_dir_path = Path(output_dir)
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+
+    output_file = output_dir_path / generate_output_filename(
         optimization_method,
         run_name,
         mlflow_run_id,
