@@ -49,7 +49,7 @@ def test_imports():
         return False
     
     try:
-        from agno_agents.pitchLLM import PitchProgram
+        from agents.pitchLLM import PitchProgram
         print("  ✓ pitchLLM")
     except ImportError as e:
         print(f"  ✗ pitchLLM: {e}")
@@ -108,7 +108,7 @@ def test_program_creation():
     print("\nTesting program creation...")
     
     try:
-        from agno_agents.pitchLLM import PitchProgram
+        from agents.pitchLLM import PitchProgram
         
         program = PitchProgram()
         print("  ✓ PitchProgram created successfully")

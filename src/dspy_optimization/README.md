@@ -176,7 +176,7 @@ To use an optimized model in production:
 
 ```python
 import dspy
-from agno_agents.pitchLLM import PitchProgram
+from agents.pitchLLM import PitchProgram
 
 # Load optimized program
 optimized_program = PitchProgram()

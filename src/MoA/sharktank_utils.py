@@ -33,9 +33,14 @@ agent_storage: str = "tmp/agents.db"
 def load_facts(relative_file_path=None):
     """Facts generated and saved as a .txt file."""
     if relative_file_path is None:
-        # Get the directory where this script is located
-        script_dir = Path(__file__).parent
-        relative_file_path = script_dir / "all_processed_facts.txt"
+        # Use centralized data path utility
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from utils.data_paths import get_all_processed_facts
+        # Try JSON first, fall back to TXT if needed
+        json_path = get_all_processed_facts()
+        txt_path = json_path.parent / "all_processed_facts.txt"
+        relative_file_path = json_path if json_path.exists() else txt_path
     
     with Path(relative_file_path).open("r", encoding="utf-8") as f:
         facts_store = json.loads(f.read())

@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # Load training examples from PO_samples.json
     print("Loading training examples from PO_samples.json...")
     try:
-        train_examples = create_training_set("data/PO_samples.json")
+        train_examples = create_training_set()  # Uses centralized data path
         if validate_training_examples(train_examples):
             print(f"✓ Successfully loaded {len(train_examples)} training examples")
         else:

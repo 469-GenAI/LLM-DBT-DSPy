@@ -741,7 +741,13 @@ async def main_async():
     output_dir, timestamp = create_output_directories()
     print(f"Results will be saved to: {output_dir}")
     
-    facts_file_path = "./data/all_processed_facts.json"
+    # Use centralized data path utility
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from utils.data_paths import get_all_processed_facts
+    
+    facts_file_path = str(get_all_processed_facts())
     if not os.path.exists(facts_file_path):
         print(f"Facts file not found at {facts_file_path}")
         return

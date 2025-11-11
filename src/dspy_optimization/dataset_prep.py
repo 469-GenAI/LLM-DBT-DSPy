@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 import dspy
 from dataclasses import dataclass
+import sys
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.data_paths import get_all_processed_facts
 
 
 @dataclass
@@ -28,27 +33,19 @@ class SharkTankDataset:
         Initialize dataset from all_processed_facts.json
         
         Args:
-            data_path: Path to all_processed_facts.json file
+            data_path: Path to all_processed_facts.json file. If None, uses data/all_processed_facts.json
         """
         if data_path is None:
-            # Try multiple possible locations
-            possible_paths = [
-                Path("ganwang/all_processed_facts.json"),
-                Path("./ganwang/all_processed_facts.json"),
-                Path("../ganwang/all_processed_facts.json"),
-                Path("../../ganwang/all_processed_facts.json")
-            ]
-            for p in possible_paths:
-                if p.exists():
-                    data_path = str(p)
-                    break
-            
-            if data_path is None:
-                raise FileNotFoundError(
-                    "Could not find all_processed_facts.json. Please specify data_path."
-                )
+            # Use centralized data path utility
+            self.data_path = get_all_processed_facts()
+        else:
+            self.data_path = Path(data_path)
         
-        self.data_path = Path(data_path)
+        if not self.data_path.exists():
+            raise FileNotFoundError(
+                f"Could not find all_processed_facts.json at: {self.data_path}. "
+                f"Please specify data_path or ensure file exists in data/ directory."
+            )
         self.raw_data = self._load_data()
         self.examples = self._create_examples()
         

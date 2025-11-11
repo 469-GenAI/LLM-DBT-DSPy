@@ -15,8 +15,8 @@ import dspy
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-from agno_agents.pitchLLM import PitchProgram, FinancialsSig, PitchSig, Financials, DraftPitch
-from agno_agents.utils import ValuationTools
+from agents.pitchLLM import PitchProgram, FinancialsSig, PitchSig, Financials, DraftPitch
+from agents.utils import ValuationTools
 from dspy_optimization.dataset_prep import load_dataset, SharkTankDataset
 from dspy_optimization.metrics import get_composite_metric, get_structure_metric, get_all_metrics
 

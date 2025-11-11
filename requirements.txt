@@ -195,3 +195,4 @@ zstandard==0.23.0
 litellm==1.61.11
 ddgs>=9.0.0
 python-dotenv
+dspy
