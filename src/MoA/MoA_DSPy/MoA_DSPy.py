@@ -390,12 +390,12 @@ def main():
     parser.add_argument("--num-agents", type=int, default=3)
     parser.add_argument("--seed", type=int, default=42, help="Random seed for shuffling examples")
 
-    parser.add_argument("--lm-model", type=str, default="groq/llama-3.3-70b-versatile",
+    parser.add_argument("--generator-model", type=str, default="groq/llama-3.3-70b-versatile",
                         help="Generator LM (LiteLLM-style id), e.g., groq/llama-3.3-70b-versatile")
     parser.add_argument("--temperature", type=float, default=0.3)
     parser.add_argument("--max-tokens", type=int, default=2048)
 
-    parser.add_argument("--eval-lm-model", type=str, default="groq/openai/gpt-oss-120b",
+    parser.add_argument("--evaluator-model", type=str, default="groq/openai/gpt-oss-120b",
                         help="Evaluator LM (for AssessPitchQuality)")
 
     parser.add_argument("--run-name", type=str, default="moa_dspy_run", help="Label for persisted artifacts")
