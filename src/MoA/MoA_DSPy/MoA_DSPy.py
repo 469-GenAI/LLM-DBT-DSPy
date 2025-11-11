@@ -252,6 +252,7 @@ class PitchSynthesizer(dspy.Module):
         facts: str,
         agent_outputs: List[Dict[str, str]],
         structured_input: Dict[str, Any],
+        config: Optional[Dict[str, Any]] = None,
     ) -> dspy.Prediction:
         """
         Combine agent drafts into JSON and synthesize a final pitch script.
@@ -262,12 +263,15 @@ class PitchSynthesizer(dspy.Module):
         validate the payload.
         """
         joined = "\n\n".join([f"[{output['role']}]\n{output['draft']}" for output in agent_outputs])
-        pitch_json = self.synth(facts=facts, drafts=joined).pitch_json
+        pitch_json = self.synth(facts=facts, drafts=joined, config=config or {}).pitch_json
 
         generated_pitch = ""
         if structured_input:
             try:
-                generator_prediction = self.pitch_generator.generate(input_data=structured_input)
+                generator_prediction = self.pitch_generator.generate(
+                    input_data=structured_input,
+                    config=config or {},
+                )
                 generated_pitch = getattr(generator_prediction, "pitch", "").strip()
             except Exception as error:
                 print(f"Warning: PitchGenerator failed with structured input: {error}")
@@ -289,14 +293,21 @@ class PitchMoAProgram(dspy.Module):
         self.agents = AgentEnsemble(max_agents=num_agents)
         self.synth = PitchSynthesizer(pitch_generator=pitch_generator)
 
-    def forward(self, facts: str, structured_input: Dict[str, Any]) -> dspy.Prediction:
+    def forward(
+        self,
+        facts: str,
+        structured_input: Dict[str, Any],
+        config: Optional[Dict[str, Any]] = None,
+    ) -> dspy.Prediction:
         plan = self.planner(facts=facts)
         drafts = self.agents(facts=facts, plan=plan)
-        return self.synth(
-            facts=facts,
-            agent_outputs=drafts,
-            structured_input=structured_input or {},
-        )
+        with dspy.context(**(config or {})):
+            return self.synth(
+                facts=facts,
+                agent_outputs=drafts,
+                structured_input=structured_input or {},
+                config=config or {},
+            )
 
 
 # ------------- Metric / Evaluator wiring -------------
@@ -440,9 +451,21 @@ def main():
     scores: List[float] = []
     results: List[Dict[str, Any]] = []
     print("[eval] Running on test set...")
-    for example in testset:
+    run_timestamp = int(time.time())
+
+    for index, example in enumerate(
+        tqdm(testset, desc="Evaluating pitches", unit="pitch", total=len(testset))
+    ):
         structured_input = getattr(example, "structured_input", {}) or {}
-        prediction = program(facts=example.facts, structured_input=structured_input)
+        rollout_config: Dict[str, Any] = {
+            "rollout_id": f"moa_eval_{run_timestamp}_{index}",
+            "temperature": max(args.temperature, 0.1),
+        }
+        prediction = program(
+            facts=example.facts,
+            structured_input=structured_input,
+            config=rollout_config,
+        )
         score = metric_fn(example, prediction)
         scores.append(score)
 
@@ -450,11 +473,16 @@ def main():
             getattr(prediction, "pitch_json", "")
         )
 
-        assessment = pitch_evaluator.get_full_assessment(
-            pitch_facts=example.facts,
-            ground_truth_pitch=getattr(example, "ground_truth_pitch", "") or "",
-            generated_pitch=generated_pitch,
-        )
+        with dspy.context(
+            lm=pitch_evaluator.lm,
+            rollout_id=f"{rollout_config['rollout_id']}_eval",
+            temperature=0.2,
+        ):
+            assessment = pitch_evaluator.get_full_assessment(
+                pitch_facts=example.facts,
+                ground_truth_pitch=getattr(example, "ground_truth_pitch", "") or "",
+                generated_pitch=generated_pitch,
+            )
 
         results.append(
             {
