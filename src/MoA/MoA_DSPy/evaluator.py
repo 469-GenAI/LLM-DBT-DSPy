@@ -3,7 +3,7 @@ Evaluator module for pitch quality assessment.
 """
 import dspy
 import json
-from eval.AssessPitch import AssessPitchQuality
+from AssessPitch import AssessPitchQuality
 
 
 class PitchEvaluatorModule(dspy.Module):

@@ -10,8 +10,8 @@
 #   - OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY if you switch models
 #
 # Data:
-#   - ./all_processed_facts.txt  (JSON dict of {fact_name: facts_dict_or_text})
-#     If dict, ground truth can be under keys like "Full_Pitch" / "output" / "ground_truth".
+#   - HuggingFace dataset `isaidchia/sharktank_pitches_modified`
+#     (structured rows with input dict + gold pitch string).
 #
 # This file imports evaluator and signature from the same directory "DSPy":
 #   DSPy/
@@ -20,34 +20,122 @@
 #     └─ generator.py       (provides PitchEvaluator module wrapper)
 # ------------------------------------------------------------
 
-import os
 import json
 import argparse
 import random
 import textwrap
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Tuple
 
 import dspy
 from dspy.teleprompt import MIPROv2, BootstrapFewShot
+from pydantic import ValidationError
 
 # Import your local modules from the same directory package "DSPy"
 from AssessPitch import AssessPitchQuality, PitchAssessment  # noqa: F401 (imported for type clarity)
-from generator import PitchEvaluator
+from data_loader import load_and_prepare_data
+from evaluator import PitchEvaluator
+from generator import PitchGenerator
+from utils import (
+    PitchInput,
+    format_pitch_input,
+    results_to_dataframe,
+    save_results_csv,
+    print_evaluation_summary,
+    save_program_with_metadata,
+)
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
+BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
+
+RESULTS_DIR = Path("MoA/results")
+PROGRAMS_DIR = Path("MoA/optimised_programs")
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DATABRICKS_PATH = os.getenv("DATABRICKS_PATH")
+BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
+# ------------- Data Preparation -------------
+
+def convert_examples_to_moa_inputs(examples: List[dspy.Example]) -> List[dspy.Example]:
+    """
+    Convert structured dataset examples into MoA-friendly DSPy examples.
+
+    Each HuggingFace-derived example exposes a structured `input` dictionary and a
+    ground-truth `output` pitch. We flatten the structured payload into a textual
+    `facts` representation while retaining the original dictionary for downstream
+    logging and synthesis with PitchGenerator.
+    """
+    converted: List[dspy.Example] = []
+
+    for example in examples:
+        structured_input = getattr(example, "input", {})
+        try:
+            # Validate and format the structured payload into a deterministic prompt.
+            pitch_input = PitchInput(**structured_input)
+            facts_text = format_pitch_input(pitch_input)
+        except ValidationError as error:
+            example_id = getattr(example, "id", "unknown")
+            print(f"Warning: Validation failed for example {example_id}: {error}")
+            facts_text = json.dumps(structured_input, ensure_ascii=False)
+
+        converted.append(
+            dspy.Example(
+                id=getattr(example, "id", ""),
+                facts=facts_text,
+                structured_input=structured_input,
+                ground_truth_pitch=getattr(example, "output", ""),
+            ).with_inputs("facts", "structured_input")
+        )
+
+    random.shuffle(converted)
+    return converted
 
 
-# ------------- Data I/O -------------
+def slice_examples(examples: List[dspy.Example], size: int) -> List[dspy.Example]:
+    """
+    Select a bounded number of examples while guarding against empty slices.
+    """
+    if size <= 0:
+        return examples
+    return examples[: min(size, len(examples))]
 
-def load_facts(relative_file_path: Optional[str] = None) -> Dict[str, Any]:
-    """Load your facts JSON; default path: ./all_processed_facts.txt."""
-    if relative_file_path is None:
-        script_dir = Path(__file__).parent
-        relative_file_path = script_dir / "all_processed_facts.txt"
-    p = Path(relative_file_path)
-    if not p.exists():
-        raise FileNotFoundError(f"Facts file not found: {p.resolve()}")
-    with p.open("r", encoding="utf-8") as f:
-        return json.loads(f.read())
+
+def prepare_train_test_sets(
+    dataset_splits: Dict[str, List[dspy.Example]],
+    train_size: int,
+    test_size: int,
+) -> Tuple[List[dspy.Example], List[dspy.Example]]:
+    """
+    Convert HuggingFace dataset splits into MoA-compatible train and test sets.
+
+    Returns train/test lists populated with `facts`, `structured_input`, and
+    `ground_truth_pitch` fields ready for DSPy programs and evaluator metrics.
+    """
+    train_split = convert_examples_to_moa_inputs(dataset_splits.get("train", []))
+    test_split = convert_examples_to_moa_inputs(dataset_splits.get("test", []))
+
+    if not train_split:
+        raise ValueError("No training examples found in dataset. Ensure the dataset is populated.")
+
+    if not test_split:
+        print("Warning: Test split empty; falling back to tail of training examples.")
+        test_split = train_split.copy()
+
+    trainset = slice_examples(train_split, train_size)
+    testset = slice_examples(test_split, test_size)
+
+    if not testset:
+        testset = train_split[-min(test_size, len(train_split)) :]
+
+    print(f"[data] Train examples: {len(trainset)} | Test examples: {len(testset)}")
+    return trainset, testset
 
 
 # ------------- Signatures -------------
@@ -139,13 +227,40 @@ class AgentEnsemble(dspy.Module):
 
 
 class PitchSynthesizer(dspy.Module):
-    def __init__(self):
+    def __init__(self, pitch_generator: PitchGenerator):
         super().__init__()
         self.synth = dspy.Predict(SynthesizePitch)
+        self.pitch_generator = pitch_generator
 
-    def forward(self, facts: str, agent_outputs: List[Dict[str, str]]) -> str:
-        joined = "\n\n".join([f"[{o['role']}]\n{o['draft']}" for o in agent_outputs])
-        return self.synth(facts=facts, drafts=joined).pitch_json
+    def forward(
+        self,
+        facts: str,
+        agent_outputs: List[Dict[str, str]],
+        structured_input: Dict[str, Any],
+    ) -> dspy.Prediction:
+        """
+        Combine agent drafts into JSON and synthesize a final pitch script.
+
+        The JSON synthesis maintains the MoA guidance, while the dedicated
+        `PitchGenerator` produces a conversational pitch grounded in the original
+        structured input. We fall back to the JSON pitch when the generator cannot
+        validate the payload.
+        """
+        joined = "\n\n".join([f"[{output['role']}]\n{output['draft']}" for output in agent_outputs])
+        pitch_json = self.synth(facts=facts, drafts=joined).pitch_json
+
+        generated_pitch = ""
+        if structured_input:
+            try:
+                generator_prediction = self.pitch_generator.generate(input_data=structured_input)
+                generated_pitch = getattr(generator_prediction, "pitch", "").strip()
+            except Exception as error:
+                print(f"Warning: PitchGenerator failed with structured input: {error}")
+
+        if not generated_pitch:
+            generated_pitch = extract_pitch_from_json(pitch_json)
+
+        return dspy.Prediction(pitch_json=pitch_json, pitch=generated_pitch)
 
 
 class PitchMoAProgram(dspy.Module):
@@ -153,52 +268,44 @@ class PitchMoAProgram(dspy.Module):
     End-to-end declarative MoA:
       TaskPlanner -> AgentEnsemble (N agents) -> PitchSynthesizer
     """
-    def __init__(self, num_agents: int = 3):
+    def __init__(self, pitch_generator: PitchGenerator, num_agents: int = 3):
         super().__init__()
         self.planner = TaskPlanner()
         self.agents = AgentEnsemble(max_agents=num_agents)
-        self.synth = PitchSynthesizer()
+        self.synth = PitchSynthesizer(pitch_generator=pitch_generator)
 
-    def forward(self, facts: str) -> dspy.Prediction:
+    def forward(self, facts: str, structured_input: Dict[str, Any]) -> dspy.Prediction:
         plan = self.planner(facts=facts)
         drafts = self.agents(facts=facts, plan=plan)
-        pitch_json = self.synth(facts=facts, agent_outputs=drafts)
-        return dspy.Prediction(pitch_json=pitch_json)
+        return self.synth(
+            facts=facts,
+            agent_outputs=drafts,
+            structured_input=structured_input or {},
+        )
 
 
 # ------------- Metric / Evaluator wiring -------------
 
-def extract_ground_truth_pitch(facts_value: Any) -> str:
-    """Try common keys to find a human-written pitch."""
-    if isinstance(facts_value, dict):
-        for key in ("Full_Pitch", "ground_truth", "gold_pitch", "output", "pitch", "Ground_Truth", "GoldPitch"):
-            if key in facts_value and isinstance(facts_value[key], str) and facts_value[key].strip():
-                return facts_value[key]
-    return ""
+def extract_pitch_from_json(pitch_json: str) -> str:
+    """
+    Extract the `Pitch` field from structured JSON output.
 
+    Falls back to returning the raw JSON string when the payload cannot be parsed
+    or the expected key is missing.
+    """
+    if not pitch_json:
+        return ""
 
-def make_examples_from_facts(facts_store: Dict[str, Any]) -> List[dspy.Example]:
-    """Unlabeled examples for evaluator-based optimization (MiPRO)."""
-    examples: List[dspy.Example] = []
-    for _, facts in facts_store.items():
-        facts_str = facts if isinstance(facts, str) else json.dumps(facts, ensure_ascii=False)
-        gt_pitch = extract_ground_truth_pitch(facts) if isinstance(facts, dict) else ""
-        examples.append(
-            dspy.Example(facts=facts_str, ground_truth_pitch=gt_pitch).with_inputs("facts", "ground_truth_pitch")
-        )
-    random.shuffle(examples)
-    return examples
+    try:
+        parsed = json.loads(pitch_json)
+    except json.JSONDecodeError:
+        return pitch_json
 
-
-def train_test_split(examples: List[dspy.Example], train_size: int, test_size: int):
-    n = len(examples)
-    if n == 0:
-        raise ValueError("No examples found. Is all_processed_facts.txt populated?")
-    train = examples[: min(train_size, n)]
-    test = examples[min(train_size, n): min(train_size + test_size, n)]
-    if len(test) == 0:
-        test = examples[-min(test_size, len(examples)) :]
-    return train, test
+    if isinstance(parsed, dict):
+        pitch_value = parsed.get("Pitch", "")
+        if isinstance(pitch_value, str):
+            return pitch_value
+    return pitch_json
 
 
 def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example]):
@@ -230,13 +337,10 @@ def make_metric(pitch_evaluator: PitchEvaluator):
     def metric(example: dspy.Example, pred: dspy.Prediction, trace=None) -> float:
         facts = example.facts
         gt_pitch = getattr(example, "ground_truth_pitch", "") or ""
-        # Parse generated pitch JSON, extract "Pitch" if available
-        gen = getattr(pred, "pitch_json", "") or ""
-        try:
-            pj = json.loads(gen)
-            generated_pitch = pj.get("Pitch", gen) if isinstance(pj, dict) else gen
-        except Exception:
-            generated_pitch = gen
+        generated_pitch = getattr(pred, "pitch", "") or ""
+        if not generated_pitch:
+            generated_pitch = extract_pitch_from_json(getattr(pred, "pitch_json", "") or "")
+
         # Evaluator returns 0.0-1.0
         score = pitch_evaluator.get_score(
             pitch_facts=facts,
@@ -251,45 +355,55 @@ def make_metric(pitch_evaluator: PitchEvaluator):
 
 def main():
     parser = argparse.ArgumentParser(description="DSPy MoA Pitch Generator")
-    parser.add_argument("--facts-path", type=str, default=None, help="Path to all_processed_facts.txt")
+    parser.add_argument("--dataset-name", type=str, default="isaidchia/sharktank_pitches_modified",
+                        help="HuggingFace dataset containing structured Shark Tank pitches")
     parser.add_argument("--optimization", type=str, default="none", choices=["none", "mipro", "bootstrap"])
     parser.add_argument("--train-size", type=int, default=20)
     parser.add_argument("--test-size", type=int, default=10)
     parser.add_argument("--num-agents", type=int, default=3)
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for shuffling examples")
 
     parser.add_argument("--lm-model", type=str, default="groq/llama-3.3-70b-versatile",
                         help="Generator LM (LiteLLM-style id), e.g., groq/llama-3.3-70b-versatile")
     parser.add_argument("--temperature", type=float, default=0.3)
     parser.add_argument("--max-tokens", type=int, default=2048)
 
-    parser.add_argument("--eval-lm-model", type=str, default="groq/llama-3.3-70b-versatile",
+    parser.add_argument("--eval-lm-model", type=str, default="groq/openai/gpt-oss-120b",
                         help="Evaluator LM (for AssessPitchQuality)")
 
+    parser.add_argument("--run-name", type=str, default="moa_dspy_run", help="Label for persisted artifacts")
     parser.add_argument("--save-program", action="store_true",
                         help="If set, save the compiled/tuned program (full program) to --save-dir.")
-    parser.add_argument("--save-dir", type=str, default="compiled_pitch_program",
+    parser.add_argument("--save-dir", type=str, default=str(PROGRAMS_DIR),
                         help="Directory to save the full program when --save-program is set.")
 
-    parser.add_argument("--dump-predictions", type=str, default="predictions.jsonl",
+    parser.add_argument("--dump-predictions", type=str, default=str(RESULTS_DIR / "predictions.jsonl"),
                         help="Where to dump test predictions as JSONL")
 
     args = parser.parse_args()
 
+    if args.seed is not None:
+        random.seed(args.seed)
+
     # Configure generator LM
     gen_lm = dspy.LM(model=args.lm_model, temperature=args.temperature, max_tokens=args.max_tokens)
     dspy.configure(lm=gen_lm)
+    pitch_generator = PitchGenerator(lm=gen_lm)
 
     # Build separate evaluator (with its own LM to avoid interference)
     eval_lm = dspy.LM(model=args.eval_lm_model, temperature=0.2, max_tokens=1024)
     pitch_evaluator = PitchEvaluator(lm=eval_lm)
 
-    # Load data
-    facts_store = load_facts(args.facts_path)
-    examples = make_examples_from_facts(facts_store)
-    trainset, testset = train_test_split(examples, train_size=args.train_size, test_size=args.test_size)
+    # Load structured dataset and convert to MoA-ready examples
+    dataset_splits = load_and_prepare_data(args.dataset_name)
+    trainset, testset = prepare_train_test_sets(
+        dataset_splits,
+        train_size=args.train_size,
+        test_size=args.test_size,
+    )
 
     # Program
-    program = PitchMoAProgram(num_agents=args.num_agents)
+    program = PitchMoAProgram(pitch_generator=pitch_generator, num_agents=args.num_agents)
 
     # Metric for optimization/eval
     metric_fn = make_metric(pitch_evaluator)
@@ -302,49 +416,89 @@ def main():
         print("[compile] Done.")
 
     # Evaluate on test set
-    scores = []
+    scores: List[float] = []
+    results: List[Dict[str, Any]] = []
     print("[eval] Running on test set...")
-    for ex in testset:
-        pred = program(facts=ex.facts)
-        score = metric_fn(ex, pred)
+    for example in testset:
+        structured_input = getattr(example, "structured_input", {}) or {}
+        prediction = program(facts=example.facts, structured_input=structured_input)
+        score = metric_fn(example, prediction)
         scores.append(score)
+
+        generated_pitch = getattr(prediction, "pitch", "") or extract_pitch_from_json(
+            getattr(prediction, "pitch_json", "")
+        )
+
+        assessment = pitch_evaluator.get_full_assessment(
+            pitch_facts=example.facts,
+            ground_truth_pitch=getattr(example, "ground_truth_pitch", "") or "",
+            generated_pitch=generated_pitch,
+        )
+
+        results.append(
+            {
+                "id": getattr(example, "id", ""),
+                "input": structured_input,
+                "facts": example.facts,
+                "ground_truth": getattr(example, "ground_truth_pitch", ""),
+                "generated_pitch": generated_pitch,
+                "pitch_json": getattr(prediction, "pitch_json", ""),
+                "assessment": assessment,
+            }
+        )
+
     avg_score = sum(scores) / max(1, len(scores))
     print(f"[eval] Test size={len(testset)} | Avg Judge Score (0-1) = {avg_score:.3f}")
 
     # Dump predictions (+ score and assessment)
     out_path = Path(args.dump_predictions)
-    with out_path.open("w", encoding="utf-8") as f:
-        for ex in testset:
-            pred = program(facts=ex.facts)
-            pitch_json = getattr(pred, "pitch_json", "")
-            # Extract pitch text for richer report
-            try:
-                pj = json.loads(pitch_json)
-                generated_pitch = pj.get("Pitch", pitch_json)
-            except Exception:
-                generated_pitch = pitch_json
-
-            assessment = pitch_evaluator.get_full_assessment(
-                pitch_facts=ex.facts,
-                ground_truth_pitch=getattr(ex, "ground_truth_pitch", "") or "",
-                generated_pitch=generated_pitch
-            )
-            row = {
-                "facts": ex.facts,
-                "ground_truth_pitch": getattr(ex, "ground_truth_pitch", ""),
-                "pitch_json": pitch_json,
-                "assessment": assessment
+    with out_path.open("w", encoding="utf-8") as handle:
+        for row in results:
+            payload = {
+                "id": row["id"],
+                "input": row["input"],
+                "facts": row["facts"],
+                "ground_truth_pitch": row["ground_truth"],
+                "generated_pitch": row["generated_pitch"],
+                "pitch_json": row["pitch_json"],
+                "assessment": row["assessment"],
             }
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
     print(f"[save] Wrote predictions to {out_path.resolve()}")
+
+    if results:
+        df = results_to_dataframe(
+            results=results,
+            optimization_method=args.optimization,
+            generator_model=args.lm_model,
+            evaluator_model=args.eval_lm_model,
+        )
+        csv_path = save_results_csv(
+            df=df,
+            optimization_method=args.optimization,
+            run_name=args.run_name,
+        )
+        print_evaluation_summary(
+            df=df,
+            generator_model=args.lm_model,
+            evaluator_model=args.eval_lm_model,
+            optimization_method=args.optimization,
+        )
+        print(f"[save] Results CSV: {Path(csv_path).resolve()}")
 
     # Save compiled/tuned program
     if args.save_program:
-        save_dir = Path(args.save_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        # Full-program save (prompts + learned settings)
-        program.save(str(save_dir), save_program=True)
-        print(f"[save] Program saved to {save_dir.resolve()}")
+        saved_program_path = save_program_with_metadata(
+            program=program,
+            save_dir=args.save_dir,
+            optimization_method=args.optimization,
+            generator_model=args.lm_model,
+            evaluator_model=args.eval_lm_model,
+            trainset_size=len(trainset),
+            testset_size=len(testset),
+            run_name=args.run_name,
+        )
+        print(f"[save] Program saved to {Path(saved_program_path).resolve()}")
 
 
 if __name__ == "__main__":
