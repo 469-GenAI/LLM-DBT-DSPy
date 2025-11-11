@@ -416,12 +416,12 @@ def main():
     program_save_dir.mkdir(parents=True, exist_ok=True)
 
     # Configure generator LM
-    gen_lm = dspy.LM(model=args.lm_model, temperature=args.temperature, max_tokens=args.max_tokens)
+    gen_lm = dspy.LM(model=args.generator_model, temperature=args.temperature, max_tokens=args.max_tokens)
     dspy.configure(lm=gen_lm)
     pitch_generator = PitchGenerator(lm=gen_lm)
 
     # Build separate evaluator (with its own LM to avoid interference)
-    eval_lm = dspy.LM(model=args.eval_lm_model, temperature=0.1, max_tokens=2048)
+    eval_lm = dspy.LM(model=args.evaluator_model, temperature=0.1, max_tokens=2048)
     pitch_evaluator = PitchEvaluator(lm=eval_lm)
 
     # Load structured dataset and convert to MoA-ready examples
@@ -503,8 +503,8 @@ def main():
         df = results_to_dataframe(
             results=results,
             optimization_method=args.optimization,
-            generator_model=args.lm_model,
-            evaluator_model=args.eval_lm_model,
+            generator_model=args.generator_model,
+            evaluator_model=args.evaluator_model,
         )
         csv_path = save_results_csv(
             df=df,
@@ -515,8 +515,8 @@ def main():
         )
         print_evaluation_summary(
             df=df,
-            generator_model=args.lm_model,
-            evaluator_model=args.eval_lm_model,
+            generator_model=args.generator_model,
+            evaluator_model=args.evaluator_model,
             optimization_method=args.optimization,
         )
         print(f"[save] Results CSV: {Path(csv_path).resolve()}")
@@ -527,8 +527,8 @@ def main():
             program=program,
             save_dir=str(program_save_dir),
             optimization_method=args.optimization,
-            generator_model=args.lm_model,
-            evaluator_model=args.eval_lm_model,
+            generator_model=args.generator_model,
+            evaluator_model=args.evaluator_model,
             trainset_size=len(trainset),
             testset_size=len(testset),
             run_name=args.run_name,
