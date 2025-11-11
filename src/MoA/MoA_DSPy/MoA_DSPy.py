@@ -34,7 +34,12 @@ from tqdm import tqdm
 
 
 import dspy
-from dspy.teleprompt import MIPROv2, BootstrapFewShot
+from dspy.teleprompt import (
+    BootstrapFewShot,
+    BootstrapFewShotWithRandomSearch,
+    KNNFewShot,
+    MIPROv2,
+)
 from pydantic import ValidationError
 
 # Import your local modules from the same directory package "DSPy"
@@ -44,12 +49,13 @@ from evaluator import PitchEvaluator
 from generator import PitchGenerator
 from utils import (
     PitchInput,
-    format_pitch_input,
-    results_to_dataframe,
-    save_results_csv,
-    print_evaluation_summary,
-    save_program_with_metadata,
     capture_mlflow_run_id,
+    create_pitch_vectorizer,
+    format_pitch_input,
+    print_evaluation_summary,
+    results_to_dataframe,
+    save_program_with_metadata,
+    save_results_csv,
 )
 from dotenv import load_dotenv
 import mlflow
@@ -372,29 +378,41 @@ def extract_pitch_from_json(pitch_json: str) -> str:
 
 
 def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example]):
-    name = (name or "none").lower()
-    if name == "mipro":
-        return MIPROv2(
+    """
+    Resolve the requested DSPy teleprompter optimizer based on CLI flag.
+    """
+    optimizer_name = (name or "none").lower()
+    if optimizer_name == "none":
+        return None
+
+    if metric_fn is None:
+        raise ValueError("resolve_optimizer requires metric_fn when optimization is enabled")
+
+    if not trainset:
+        raise ValueError("resolve_optimizer requires a non-empty trainset")
+
+    if optimizer_name == "mipro":
+        return MIPROv2(metric=metric_fn, init_temperature=1.0)
+
+    if optimizer_name in ("bootstrap", "bootstrapfewshot", "bfs"):
+        # BootstrapFewShot optimizes demonstrations via iterative selection.
+        return BootstrapFewShot(metric=metric_fn, max_bootstrapped_demos=4, max_labeled_demos=4)
+
+    if optimizer_name in ("bootstrap_random", "bootstrapfewshot_random"):
+        # Randomized search extends BootstrapFewShot with candidate exploration.
+        return BootstrapFewShotWithRandomSearch(
             metric=metric_fn,
-            init_temperature=1.0,
-        )
-        compiled_program = optimizer.compile(
-            program,
-            trainset=trainset,
-            # num_trials=10,
             max_bootstrapped_demos=4,
-            max_labeled_demos=4
+            max_labeled_demos=4,
+            num_candidate_programs=10,
         )
-        return compiled_program
-    if name in ("bootstrap", "bootstrapfewshot", "bfs"):
-        return BootstrapFewShot(
-            metric=metric_fn,
-            max_bootstrapped_demos=6,
-            num_candidates=2,
-            max_train_iters=2,
-            verbose=True,
-        )
-    return None
+
+    if optimizer_name == "knn":
+        # KNNFewShot reuses nearest neighbors at inference time.
+        vectorizer = create_pitch_vectorizer(model_name="all-MiniLM-L6-v2")
+        return KNNFewShot(k=3, trainset=trainset, vectorizer=vectorizer)
+
+    raise ValueError(f"Unknown optimization method: {optimizer_name}")
 
 
 def make_metric(pitch_evaluator: PitchEvaluator):
@@ -492,7 +510,11 @@ def main():
     mlflow_run_id = None
     if teleprompter is not None:
         print(f"[compile] Optimizing with {teleprompter.__class__.__name__} ...")
-        program = teleprompter.compile(program, trainset=trainset)
+        if isinstance(teleprompter, KNNFewShot):
+            # KNNFewShot compiles lazily for runtime neighbor lookup.
+            program = teleprompter.compile(program)
+        else:
+            program = teleprompter.compile(program, trainset=trainset)
         print("[compile] Done.")
         mlflow_run_id = capture_mlflow_run_id(DATABRICKS_PATH, run_name)
 
