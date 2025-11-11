@@ -443,7 +443,7 @@ def main():
     parser = argparse.ArgumentParser(description="DSPy MoA Pitch Generator")
     parser.add_argument("--dataset-name", type=str, default="isaidchia/sharktank_pitches_modified",
                         help="HuggingFace dataset containing structured Shark Tank pitches")
-    parser.add_argument("--optimization", type=str, default="none", choices=["none", "mipro", "bootstrap"])
+    parser.add_argument("--optimization", type=str, default="none", choices=["none", "mipro", "bootstrap", "bootstrap_random", "knn"])
     parser.add_argument("--train-size", type=int, default=20)
     parser.add_argument("--test-size", type=int, default=10)
     parser.add_argument("--num-agents", type=int, default=3)
