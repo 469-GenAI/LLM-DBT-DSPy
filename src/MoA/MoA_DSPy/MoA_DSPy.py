@@ -79,6 +79,42 @@ if DATABRICKS_PATH:
 else:
     print("No DATABRICKS_PATH found in .env")
 
+
+def create_lm(model_id: str, temperature: float, max_tokens: int) -> dspy.LM:
+    """
+    Create a DSPy language model configured for the requested provider.
+
+    Args:
+        model_id: Provider-prefixed model identifier, e.g. "groq/..." or "bedrock/..."
+        temperature: Sampling temperature for the model.
+        max_tokens: Maximum tokens for generation.
+
+    Returns:
+        Configured DSPy language model instance.
+    """
+    if model_id.startswith("bedrock/"):
+        if not BEDROCK_API_KEY:
+            raise ValueError(
+                "BEDROCK_API_KEY missing in environment while a Bedrock model was requested"
+            )
+        return dspy.LM(
+            model=model_id,
+            model_type="chat",
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=BEDROCK_API_KEY,
+        )
+
+    if not GROQ_API_KEY:
+        raise ValueError("GROQ_API_KEY missing in environment for Groq-backed model configuration")
+    return dspy.LM(
+        model=model_id,
+        model_type="chat",
+        temperature=temperature,
+        max_tokens=max_tokens,
+        api_key=GROQ_API_KEY,
+    )
+
 def convert_examples_to_moa_inputs(examples: List[dspy.Example]) -> List[dspy.Example]:
     """
     Convert structured dataset examples into MoA-friendly DSPy examples.
@@ -416,12 +452,20 @@ def main():
     program_save_dir.mkdir(parents=True, exist_ok=True)
 
     # Configure generator LM
-    gen_lm = dspy.LM(model=args.generator_model, temperature=args.temperature, max_tokens=args.max_tokens)
+    gen_lm = create_lm(
+        model_id=args.generator_model,
+        temperature=args.temperature,
+        max_tokens=args.max_tokens,
+    )
     dspy.configure(lm=gen_lm)
     pitch_generator = PitchGenerator(lm=gen_lm)
 
     # Build separate evaluator (with its own LM to avoid interference)
-    eval_lm = dspy.LM(model=args.evaluator_model, temperature=0.1, max_tokens=2048)
+    eval_lm = create_lm(
+        model_id=args.evaluator_model,
+        temperature=0.1,
+        max_tokens=2048,
+    )
     pitch_evaluator = PitchEvaluator(lm=eval_lm)
 
     # Load structured dataset and convert to MoA-ready examples
