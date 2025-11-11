@@ -1,122 +1,4 @@
-"""
-Vector store using ChromaDB for pitch retrieval.
 
-CHUNKING STRATEGY & CONSIDERATIONS
-==================================
-
-CURRENT APPROACH: NO CHUNKING (Default)
----------------------------------------
-Each pitch is stored as ONE complete document in the vector database.
-- Pitch length: ~500-8,000 characters (average ~2,000 chars)
-- Documents: 245 total (one per product)
-- Retrieval: Returns entire pitch contexts
-
-WHY NO CHUNKING BY DEFAULT?
----------------------------
-1. Pitch Structure: Pitches are self-contained narratives
-   - Problem → Solution → Ask → Story arc
-   - Breaking them up loses narrative coherence
-   
-2. Semantic Completeness: Entire pitch provides full context
-   - Product description, founder story, financials, ask
-   - LLM can extract relevant parts from full context
-   
-3. Retrieval Quality: Similarity search works better on complete pitches
-   - "Smart fitness tracker" matches entire pitch, not fragments
-   - Vector embeddings capture full semantic meaning
-   
-4. Token Limits: Modern LLMs handle ~8K tokens easily
-   - Average pitch: ~500-2000 tokens (well within limits)
-   - Even longest pitches (~8K chars) fit comfortably
-
-WHEN TO CONSIDER CHUNKING?
---------------------------
-Consider chunking if you encounter:
-
-1. **Very Long Pitches** (>10,000 chars)
-   - Some transcripts include full Q&A sessions
-   - Solution: Filter/extract pitch portion only
-   
-2. **Fine-Grained Retrieval** (sub-pitch sections)
-   - Need to find specific parts: "financial ask", "problem statement"
-   - Solution: Semantic chunking by section (requires structure)
-   
-3. **Token Budget Constraints**
-   - Strict limits on context window
-   - Solution: Chunk to fit budget (trade-off: lose coherence)
-   
-4. **Hybrid Search Strategy**
-   - Combine vector search + keyword search
-   - Chunks enable better keyword matching
-   - Solution: Use metadata filters instead (simpler)
-
-CHUNKING FACTORS TO CONSIDER
-----------------------------
-If you decide to chunk, consider:
-
-1. **Chunk Size**
-   - Too small (<500 chars): Loses context, fragmented meaning
-   - Too large (>3000 chars): Defeats purpose, still long
-   - Recommended: 1000-2000 chars (if chunking needed)
-   
-2. **Chunk Overlap**
-   - Purpose: Preserve context across boundaries
-   - Example: "I need $500K" split mid-sentence
-   - Recommended: 100-200 chars overlap
-   
-3. **Chunking Method**
-   - Character-based: Simple, but may split mid-sentence
-   - Sentence-based: Better semantic boundaries
-   - Section-based: Best (Problem/Solution/Ask) but requires structure
-   
-4. **Metadata Tracking**
-   - Track: chunk_index, total_chunks, product_key
-   - Enables: Reconstructing full pitch, filtering by product
-   - Current: Already implemented in data_indexer.py
-   
-5. **Retrieval Strategy**
-   - With chunks: May retrieve multiple chunks from same pitch
-   - Solution: Deduplicate by product_key, merge chunks
-   - Alternative: Rerank and select best chunk per product
-
-RECOMMENDED APPROACH
---------------------
-For Shark Tank pitches, stick with NO CHUNKING unless:
-- You have specific requirements (fine-grained search, token limits)
-- You're experimenting with retrieval strategies
-- Your pitches exceed 10K characters consistently
-
-If chunking is needed:
-```python
-from pitchLLM.rag.data_indexer import load_and_prepare_all
-
-# Chunk at 1500 chars with 200 char overlap
-documents = load_and_prepare_all(
-    chunk_size=1500,
-    chunk_overlap=200
-)
-```
-
-PERFORMANCE COMPARISON
-----------------------
-No Chunking (Current):
-- Documents: 245
-- Avg length: ~2000 chars
-- Retrieval: Fast, simple
-- Quality: High (full context)
-
-With Chunking (1500 chars, 200 overlap):
-- Documents: ~400-500 (estimated)
-- Avg length: ~1500 chars
-- Retrieval: Slightly slower (more docs)
-- Quality: May decrease (fragmented context)
-- Reassembly: Requires logic to merge chunks
-
-CONCLUSION
-----------
-Default (no chunking) is optimal for most use cases. Only chunk if you have
-specific requirements that benefit from finer granularity.
-"""
 
 import chromadb
 from chromadb.config import Settings
@@ -385,3 +267,123 @@ if __name__ == "__main__":
             print(f"   Product: {metadata.get('product_name', 'N/A')}")
             print(f"   Text preview: {text[:150]}...")
 
+
+"""
+Vector store using ChromaDB for pitch retrieval.
+
+CHUNKING STRATEGY & CONSIDERATIONS
+==================================
+
+CURRENT APPROACH: NO CHUNKING (Default)
+---------------------------------------
+Each pitch is stored as ONE complete document in the vector database.
+- Pitch length: ~500-8,000 characters (average ~2,000 chars)
+- Documents: 245 total (one per product)
+- Retrieval: Returns entire pitch contexts
+
+WHY NO CHUNKING BY DEFAULT?
+---------------------------
+1. Pitch Structure: Pitches are self-contained narratives
+   - Problem → Solution → Ask → Story arc
+   - Breaking them up loses narrative coherence
+   
+2. Semantic Completeness: Entire pitch provides full context
+   - Product description, founder story, financials, ask
+   - LLM can extract relevant parts from full context
+   
+3. Retrieval Quality: Similarity search works better on complete pitches
+   - "Smart fitness tracker" matches entire pitch, not fragments
+   - Vector embeddings capture full semantic meaning
+   
+4. Token Limits: Modern LLMs handle ~8K tokens easily
+   - Average pitch: ~500-2000 tokens (well within limits)
+   - Even longest pitches (~8K chars) fit comfortably
+
+WHEN TO CONSIDER CHUNKING?
+--------------------------
+Consider chunking if you encounter:
+
+1. **Very Long Pitches** (>10,000 chars)
+   - Some transcripts include full Q&A sessions
+   - Solution: Filter/extract pitch portion only
+   
+2. **Fine-Grained Retrieval** (sub-pitch sections)
+   - Need to find specific parts: "financial ask", "problem statement"
+   - Solution: Semantic chunking by section (requires structure)
+   
+3. **Token Budget Constraints**
+   - Strict limits on context window
+   - Solution: Chunk to fit budget (trade-off: lose coherence)
+   
+4. **Hybrid Search Strategy**
+   - Combine vector search + keyword search
+   - Chunks enable better keyword matching
+   - Solution: Use metadata filters instead (simpler)
+
+CHUNKING FACTORS TO CONSIDER
+----------------------------
+If you decide to chunk, consider:
+
+1. **Chunk Size**
+   - Too small (<500 chars): Loses context, fragmented meaning
+   - Too large (>3000 chars): Defeats purpose, still long
+   - Recommended: 1000-2000 chars (if chunking needed)
+   
+2. **Chunk Overlap**
+   - Purpose: Preserve context across boundaries
+   - Example: "I need $500K" split mid-sentence
+   - Recommended: 100-200 chars overlap
+   
+3. **Chunking Method**
+   - Character-based: Simple, but may split mid-sentence
+   - Sentence-based: Better semantic boundaries
+   - Section-based: Best (Problem/Solution/Ask) but requires structure
+   
+4. **Metadata Tracking**
+   - Track: chunk_index, total_chunks, product_key
+   - Enables: Reconstructing full pitch, filtering by product
+   - Current: Already implemented in data_indexer.py
+   
+5. **Retrieval Strategy**
+   - With chunks: May retrieve multiple chunks from same pitch
+   - Solution: Deduplicate by product_key, merge chunks
+   - Alternative: Rerank and select best chunk per product
+
+RECOMMENDED APPROACH
+--------------------
+For Shark Tank pitches, stick with NO CHUNKING unless:
+- You have specific requirements (fine-grained search, token limits)
+- You're experimenting with retrieval strategies
+- Your pitches exceed 10K characters consistently
+
+If chunking is needed:
+```python
+from pitchLLM.rag.data_indexer import load_and_prepare_all
+
+# Chunk at 1500 chars with 200 char overlap
+documents = load_and_prepare_all(
+    chunk_size=1500,
+    chunk_overlap=200
+)
+```
+
+PERFORMANCE COMPARISON
+----------------------
+No Chunking (Current):
+- Documents: 245
+- Avg length: ~2000 chars
+- Retrieval: Fast, simple
+- Quality: High (full context)
+
+With Chunking (1500 chars, 200 overlap):
+- Documents: ~400-500 (estimated)
+- Avg length: ~1500 chars
+- Retrieval: Slightly slower (more docs)
+- Quality: May decrease (fragmented context)
+- Reassembly: Requires logic to merge chunks
+
+CONCLUSION
+----------
+Default (no chunking) is optimal for most use cases. Only chunk if you have
+specific requirements that benefit from finer granularity.
+"""

@@ -271,13 +271,6 @@ Note: Costs vary based on:
 python src/dspy_optimization/test_setup.py
 ```
 
-### Missing API Key
-
-Create `.env` file in project root:
-```
-OPENAI_API_KEY=your_key_here
-```
-
 ### Import Errors
 
 Ensure you're in the project root and virtual environment is activated:
