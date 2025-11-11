@@ -11,10 +11,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import random
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Sequence
 
 import dspy
 from dotenv import load_dotenv
@@ -26,7 +25,7 @@ from .multi_agent_program import (
     build_multi_agent_program,
     compile_aggregator,
 )
-from .sharktank_utils import load_facts
+from ..pitchLLM.data_loader import load_and_prepare_data
 
 # Default prompts lifted from the procedural implementation for continuity.
 TASKMASTER_SYSTEM_PROMPT = """
@@ -139,16 +138,10 @@ def parse_arguments() -> argparse.Namespace:
         help="Delay between major API calls (seconds).",
     )
     parser.add_argument(
-        "--scenario-key",
+        "--dataset-name",
         type=str,
-        default=None,
-        help="Specific fact key to run. Defaults to a random selection.",
-    )
-    parser.add_argument(
-        "--facts-path",
-        type=str,
-        default=None,
-        help="Override path to facts JSON.",
+        default="isaidchia/sharktank_pitches_modified",
+        help="Hugging Face dataset name containing Shark Tank pitch examples.",
     )
     parser.add_argument(
         "--aggregator-training",
@@ -213,21 +206,6 @@ def build_agent_lms(model_names: Sequence[str]) -> List[dspy.LM]:
     return [build_lm(model_name) for model_name in model_names]
 
 
-def select_fact_key(facts_store: Dict[str, Dict[str, str]], desired_key: Optional[str]) -> str:
-    """
-    Pick a fact key deterministically or randomly.
-    """
-    if desired_key:
-        if desired_key not in facts_store:
-            raise KeyError(f"Requested scenario key '{desired_key}' not found in facts store.")
-        return desired_key
-
-    if not facts_store:
-        raise ValueError("Facts store is empty. Provide a valid facts dataset.")
-
-    return random.choice(list(facts_store.keys()))
-
-
 def build_original_prompt(facts: Dict[str, str]) -> str:
     """
     Mirror the procedural user prompt structure.
@@ -264,11 +242,20 @@ def run_pipeline(args: argparse.Namespace) -> Dict[str, str]:
         enable_feedback=not args.no_feedback,
     )
 
-    facts_store = load_facts(args.facts_path)
-    scenario_key = select_fact_key(facts_store, args.scenario_key)
-    scenario_facts = facts_store[scenario_key]
+    dataset_payload = load_and_prepare_data(args.dataset_name)
+    if "test" not in dataset_payload:
+        raise KeyError(
+            f"Dataset does not provide a 'test' split. Available splits: {list(dataset_payload.keys())}"
+        )
+    test_examples = dataset_payload["test"]
+    if not test_examples:
+        raise ValueError("Test split is empty.")
 
-    original_prompt = build_original_prompt(scenario_facts)
+    chosen_example = test_examples[0]
+    example_identifier = getattr(chosen_example, "id", "test-0")
+
+    example_input: Dict[str, str] = getattr(chosen_example, "input")
+    original_prompt = build_original_prompt(example_input)
 
     if args.aggregator_training:
         training_path = Path(args.aggregator_training)
@@ -281,7 +268,7 @@ def run_pipeline(args: argparse.Namespace) -> Dict[str, str]:
         )
 
     pitch_payload = program(
-        pitch_facts=json.dumps(scenario_facts, indent=2),
+        pitch_facts=json.dumps(example_input, indent=2),
         original_prompt=(
             TASKMASTER_SYSTEM_PROMPT.format(agent_total=args.num_agents)
             + "\n"
@@ -295,7 +282,8 @@ def run_pipeline(args: argparse.Namespace) -> Dict[str, str]:
     if args.rate_limit > 0:
         time.sleep(args.rate_limit)
 
-    pitch_payload["scenario_key"] = scenario_key
+    pitch_payload["dataset_name"] = args.dataset_name
+    pitch_payload["example_id"] = example_identifier
     pitch_payload["agent_models"] = agent_models[: args.num_agents]
     pitch_payload["planner_model"] = args.planner_model
     pitch_payload["aggregator_model"] = args.aggregator_model
