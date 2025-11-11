@@ -323,7 +323,7 @@ def save_program_with_metadata(
         Path to the saved program
     """
     os.makedirs(save_dir, exist_ok=True)
-    save_path = f"{save_dir}/pitch_{optimization_method}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    save_path = f"{save_dir}/pitch_MoA_{optimization_method}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
     # Save the program first
     program.save(save_path)

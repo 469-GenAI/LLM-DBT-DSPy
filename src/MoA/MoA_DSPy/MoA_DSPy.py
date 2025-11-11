@@ -29,7 +29,7 @@ import argparse
 import random
 import textwrap
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from tqdm import tqdm
 
 
@@ -49,6 +49,7 @@ from utils import (
     save_results_csv,
     print_evaluation_summary,
     save_program_with_metadata,
+    capture_mlflow_run_id,
 )
 from dotenv import load_dotenv
 import mlflow
@@ -68,7 +69,7 @@ logging.getLogger("mlflow.tracing.export.mlflow_v3").setLevel(logging.ERROR)
 
 # comment out if you want to stop tracking
 if DATABRICKS_PATH:
-    run_name = f"pitchLLM_structured_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    run_name = f"MoA_DSPy_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     mlflow.set_experiment(DATABRICKS_PATH + run_name)
     mlflow.dspy.autolog(
         log_compiles=True,    # Track optimization process
@@ -420,7 +421,7 @@ def main():
     pitch_generator = PitchGenerator(lm=gen_lm)
 
     # Build separate evaluator (with its own LM to avoid interference)
-    eval_lm = dspy.LM(model=args.eval_lm_model, temperature=0.2, max_tokens=1024)
+    eval_lm = dspy.LM(model=args.eval_lm_model, temperature=0.2, max_tokens=2048)
     pitch_evaluator = PitchEvaluator(lm=eval_lm)
 
     # Load structured dataset and convert to MoA-ready examples
@@ -439,10 +440,12 @@ def main():
 
     # Optimize if requested
     teleprompter = resolve_optimizer(args.optimization, metric_fn, trainset)
+    mlflow_run_id = None
     if teleprompter is not None:
         print(f"[compile] Optimizing with {teleprompter.__class__.__name__} ...")
         program = teleprompter.compile(program, trainset=trainset)
         print("[compile] Done.")
+        mlflow_run_id = capture_mlflow_run_id(DATABRICKS_PATH, run_name)
 
     # Evaluate on test set
     scores: List[float] = []
@@ -507,6 +510,7 @@ def main():
             df=df,
             optimization_method=args.optimization,
             run_name=args.run_name,
+            mlflow_run_id=mlflow_run_id,
             output_dir=results_dir,
         )
         print_evaluation_summary(
@@ -528,6 +532,7 @@ def main():
             trainset_size=len(trainset),
             testset_size=len(testset),
             run_name=args.run_name,
+            mlflow_run_id=mlflow_run_id,
         )
         print(f"[save] Program saved to {Path(saved_program_path).resolve()}")
 
