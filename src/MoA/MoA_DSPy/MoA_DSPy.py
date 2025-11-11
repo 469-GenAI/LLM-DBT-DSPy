@@ -403,16 +403,13 @@ def main():
     parser.add_argument("--save-dir", type=str, default=str(PROGRAMS_DIR),
                         help="Directory to save the full program when --save-program is set.")
 
-    parser.add_argument("--dump-predictions", type=str, default=str(RESULTS_DIR / "predictions.jsonl"),
-                        help="Where to dump test predictions as JSONL")
-
     args = parser.parse_args()
 
     if args.seed is not None:
         random.seed(args.seed)
 
-    predictions_path = Path(args.dump_predictions)
-    predictions_path.parent.mkdir(parents=True, exist_ok=True)
+    results_dir = RESULTS_DIR
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     program_save_dir = Path(args.save_dir)
     program_save_dir.mkdir(parents=True, exist_ok=True)
@@ -499,22 +496,6 @@ def main():
     avg_score = sum(scores) / max(1, len(scores))
     print(f"[eval] Test size={len(testset)} | Avg Judge Score (0-1) = {avg_score:.3f}")
 
-    # Dump predictions (+ score and assessment)
-    out_path = predictions_path
-    with out_path.open("w", encoding="utf-8") as handle:
-        for row in results:
-            payload = {
-                "id": row["id"],
-                "input": row["input"],
-                "facts": row["facts"],
-                "ground_truth_pitch": row["ground_truth"],
-                "generated_pitch": row["generated_pitch"],
-                "pitch_json": row["pitch_json"],
-                "assessment": row["assessment"],
-            }
-            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    print(f"[save] Wrote predictions to {out_path.resolve()}")
-
     if results:
         df = results_to_dataframe(
             results=results,
@@ -526,7 +507,7 @@ def main():
             df=df,
             optimization_method=args.optimization,
             run_name=args.run_name,
-            output_dir=predictions_path.parent,
+            output_dir=results_dir,
         )
         print_evaluation_summary(
             df=df,
