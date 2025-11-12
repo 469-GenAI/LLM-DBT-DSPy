@@ -245,6 +245,16 @@ class SynthesizePitch(dspy.Signature):
     """))
 
 
+class ComposePitch(dspy.Signature):
+    """Compose a conversational pitch script from synthesized guidance."""
+
+    facts: str = dspy.InputField(desc="Product/company facts.")
+    agent_drafts: str = dspy.InputField(desc="Draft sections with role labels.")
+    pitch_json: str = dspy.InputField(desc="Structured JSON guidance with pitch and offer.")
+    structured_summary: str = dspy.InputField(desc="Original structured input formatted for narrative grounding.")
+    pitch: str = dspy.OutputField(desc="Conversational Shark Tank style pitch (<= 350 words).")
+
+
 # ------------- Modules -------------
 
 class TaskPlanner(dspy.Module):
@@ -286,9 +296,10 @@ class AgentEnsemble(dspy.Module):
 
 
 class PitchSynthesizer(dspy.Module):
-    def __init__(self, pitch_generator: PitchGenerator):
+    def __init__(self, pitch_generator: Optional[PitchGenerator]):
         super().__init__()
         self.synth = dspy.Predict(SynthesizePitch)
+        self.compose = dspy.ChainOfThought(ComposePitch)
         self.pitch_generator = pitch_generator
 
     def forward(
@@ -309,21 +320,36 @@ class PitchSynthesizer(dspy.Module):
         joined = "\n\n".join([f"[{output['role']}]\n{output['draft']}" for output in agent_outputs])
         pitch_json = self.synth(facts=facts, drafts=joined, config=config or {}).pitch_json
 
-        generated_pitch = ""
+        structured_summary = ""
         if structured_input:
+            try:
+                structured_summary = format_pitch_input(PitchInput(**structured_input))
+            except ValidationError as error:
+                print(f"Warning: Could not format structured input for composition: {error}")
+                structured_summary = json.dumps(structured_input, ensure_ascii=False)
+
+        composed_pitch = self.compose(
+            facts=facts,
+            agent_drafts=joined,
+            pitch_json=pitch_json,
+            structured_summary=structured_summary,
+            config=config or {},
+        ).pitch.strip()
+
+        if not composed_pitch and self.pitch_generator is not None:
             try:
                 generator_prediction = self.pitch_generator.generate(
                     input_data=structured_input,
                     config=config or {},
                 )
-                generated_pitch = getattr(generator_prediction, "pitch", "").strip()
+                composed_pitch = getattr(generator_prediction, "pitch", "").strip()
             except Exception as error:
-                print(f"Warning: PitchGenerator failed with structured input: {error}")
+                print(f"Warning: PitchGenerator fallback failed: {error}")
 
-        if not generated_pitch:
-            generated_pitch = extract_pitch_from_json(pitch_json)
+        if not composed_pitch:
+            composed_pitch = extract_pitch_from_json(pitch_json)
 
-        return dspy.Prediction(pitch_json=pitch_json, pitch=generated_pitch)
+        return dspy.Prediction(pitch_json=pitch_json, pitch=composed_pitch)
 
 
 class PitchMoAProgram(dspy.Module):
@@ -343,8 +369,6 @@ class PitchMoAProgram(dspy.Module):
         structured_input: Dict[str, Any],
         config: Optional[Dict[str, Any]] = None,
     ) -> dspy.Prediction:
-        plan = self.planner(facts=facts)
-        drafts = self.agents(facts=facts, plan=plan)
         with dspy.context(cache=False, **(config or {})):
             plan = self.planner(facts=facts)
             drafts = self.agents(facts=facts, plan=plan)
@@ -395,7 +419,7 @@ def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example], simba_
         raise ValueError("resolve_optimizer requires a non-empty trainset")
 
     if optimizer_name == "mipro":
-        return MIPROv2(metric=metric_fn, init_temperature=1.0)
+        return MIPROv2(metric=metric_fn, init_temperature=1.0, max_bootstrapped_demos=0, max_labeled_demos=0)
 
     if optimizer_name == "simba":
         return SIMBA(metric=simba_metric_fn, num_threads=1, bsize=4, num_candidates=2, max_steps=4)
