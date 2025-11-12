@@ -396,7 +396,7 @@ def resolve_optimizer(name: str, metric_fn, trainset: List[dspy.Example], simba_
         return MIPROv2(metric=metric_fn, init_temperature=1.0)
 
     if optimizer_name == "simba":
-        return SIMBA(metric=simba_metric_fn, init_temperature=1.0)
+        return SIMBA(metric=simba_metric_fn, num_threads=1, bsize=4, num_candidates=2, max_steps=4)
 
     if optimizer_name == "bootstrap":
         # BootstrapFewShot optimizes demonstrations via iterative selection.
