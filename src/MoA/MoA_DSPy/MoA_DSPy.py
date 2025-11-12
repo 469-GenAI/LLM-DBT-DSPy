@@ -345,7 +345,9 @@ class PitchMoAProgram(dspy.Module):
     ) -> dspy.Prediction:
         plan = self.planner(facts=facts)
         drafts = self.agents(facts=facts, plan=plan)
-        with dspy.context(**(config or {})):
+        with dspy.context(cache=False, **(config or {})):
+            plan = self.planner(facts=facts)
+            drafts = self.agents(facts=facts, plan=plan)
             return self.synth(
                 facts=facts,
                 agent_outputs=drafts,
@@ -472,6 +474,8 @@ def _simba_metric(pitch_evaluator: PitchEvaluator):
 # ------------- CLI -------------
 
 def main():
+    dspy.configure_cache(enable_disk_cache=False, enable_memory_cache=False)
+
     parser = argparse.ArgumentParser(description="DSPy MoA Pitch Generator")
     parser.add_argument("--dataset-name", type=str, default="isaidchia/sharktank_pitches_modified",
                         help="HuggingFace dataset containing structured Shark Tank pitches")
