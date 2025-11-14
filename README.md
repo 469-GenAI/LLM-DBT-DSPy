@@ -1,6 +1,6 @@
 # DSPy Multi-Agent Intelligent LLM for Tackling Business-Pitches
 
-Singapore Management University IS459 Generative AI with LLMs
+Singapore Management University IS469 Generative AI with LLMs
 
 ## Setup Instructions
 
