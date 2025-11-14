@@ -50,6 +50,63 @@ Singapore Management University IS459 Generative AI with LLMs
 
    **Note:** `GROQ_API_KEY` is required for the default Groq models. Other API keys are optional and only needed if you switch to different model providers.
 
+## Data
+
+The project uses structured Shark Tank pitch data for training and evaluation. The main dataset is hosted on HuggingFace and is automatically loaded by the DSPy systems.
+
+### Main Dataset (HuggingFace)
+
+**Dataset:** `isaidchia/sharktank_pitches_modified`
+
+The dataset is stored in JSONL format with train and test splits. Each example contains:
+
+- **`id`**: Unique identifier for the pitch
+- **`input`**: Structured dictionary with:
+  - `company`: Company name
+  - `founder`: List of founder names
+  - `offer`: Investment offer (e.g., "200,000 for 10%")
+  - `problem_summary`: Summary of the problem being addressed
+  - `solution_summary`: Summary of the solution provided
+- **`output`**: Ground truth pitch text (the actual Shark Tank pitch)
+
+**Example:**
+
+```json
+{
+  "id": "058ba54d-97f8-4120-ae29-15aafa46189d",
+  "input": {
+    "company": "Honey Bunchies",
+    "founder": ["Founder 1"],
+    "offer": "200,000 for 10%",
+    "problem_summary": "Fighter pilots need healthy, sustained energy...",
+    "solution_summary": "Honey Bunchy's offers gourmet honey bars..."
+  },
+  "output": "Hi Sharks, my name is Kendra Bennett..."
+}
+```
+
+The dataset is automatically downloaded from HuggingFace when you run the DSPy scripts. Ensure you've authenticated with `huggingface-cli login` as described in the setup instructions.
+
+### Local Data Folder Structure
+
+The `data/` folder contains supporting files and processing notebooks:
+
+- **`data/hf (new)/`**: Current HuggingFace dataset files (train.jsonl, test.jsonl, sharktank_dataset_hard.jsonl)
+- **`data/hf (old)/`**: Previous dataset versions (for reference)
+- **`data/all_processed_facts.json`**: Processed facts extracted from Shark Tank transcripts (310KB, 5105 lines) - contains structured information about products, pitches, and deals
+- **`data/pitches/`**: Refined pitch JSON files (existing_refined_pitches, refined_pitches)
+- **`data/raw_transcripts/`**: Original transcript JSON files from Shark Tank episodes
+- **`data/ETL/`**: Jupyter notebooks for data processing:
+  - `Create Dataset.ipynb`: Converts processed data into HuggingFace dataset format
+  - `Scrape YT Playlist.ipynb`: Scrapes YouTube transcripts
+  - `Transcript to Pitch Notebook.ipynb`: Extracts pitches from transcripts
+  - `Dedupe New Videos.ipynb`: Removes duplicate entries
+- **`data/pdfs/`**: Reference PDF documents (HBS opportunities, pitch deck samples)
+- **`data/scripts/`**: Utility scripts (sample_keys.py, test_mlflow.py)
+- **`data/PO_samples.json`** and **`PO_samples.txt`**: Sample data files for understanding the format
+
+**Note:** The local data files are primarily for reference and data processing. The DSPy systems automatically load the dataset from HuggingFace, so you don't need to interact with these files directly unless you're modifying or creating new datasets.
+
 ## DSPy Pitch Generation Systems
 
 This project implements two DSPy-based pitch generation systems for creating Shark Tank-style business pitches from structured input data.
