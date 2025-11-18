@@ -53,7 +53,7 @@ class RAGEvaluator:
         Initialize evaluator.
         
         Args:
-            generator_lm: LLM for generation (e.g., Llama 70B)
+            generator_lm: LLM for generation (e.g., Llama 70B, Llama 8B Instant)
             evaluator_lm: LLM for evaluation (e.g., GPT OSS 120B)
             test_size: Number of test examples
             top_k: Number of retrieved examples for RAG
@@ -364,7 +364,8 @@ def main():
     
     # Configure models
     generator_lm = dspy.LM(
-        "groq/llama-3.3-70b-versatile",
+        # "groq/llama-3.3-70b-versatile",
+        "groq/llama-3.3-8b-instant",
         model_type="chat",
         api_key=GROQ_API_KEY
     )

@@ -12,6 +12,7 @@ Generates detailed performance metrics and comparison reports.
 import json
 import time
 import logging
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -119,9 +120,16 @@ class RAGStrategyComparator:
         start_time = time.time()
         prediction = None  # Initialize to avoid UnboundLocalError
         
-        # Generate pitch
+        # Generate pitch with cache-busting config (match compare_rag_vs_knn.py)
+        cache_bust_config = {
+            "rollout_id": f"{generator_name}_{uuid.uuid4().hex[:8]}",
+            "temperature": 1.0  # Ensure non-deterministic generation
+        }
+        
         try:
-            prediction = generator.generate(example.input)
+            # Both RAGPitchGenerator and PitchGenerator support config parameter
+            # (see models/generator.py and models/rag_generator.py)
+            prediction = generator.generate(example.input, config=cache_bust_config)
             generated_pitch = prediction.pitch if hasattr(prediction, 'pitch') else str(prediction)
             success = True
         except Exception as e:
@@ -138,7 +146,7 @@ class RAGStrategyComparator:
         if success and generated_pitch:
             try:
                 quality_score = self.evaluator.get_score(
-                    pitch_facts=json.dumps(example.input),
+                    pitch_facts=json.dumps(example.input, indent=2),  # Match compare_rag_vs_knn.py format
                     ground_truth_pitch=example.output,
                     generated_pitch=generated_pitch
                 )
@@ -373,15 +381,18 @@ def main():
         raise ValueError("GROQ_API_KEY not found in environment")
     
     generator_lm = dspy.LM(
-        "groq/llama-3.3-70b-versatile",
+        "groq/llama-3.3-70b-versatile",  # Use 70B for better quality
+        # "groq/llama-3.1-8b-instant",  # Fixed: llama-3.3-8b-instant doesn't exist, use 3.1 instead
         model_type="chat",
-        api_key=GROQ_API_KEY
+        api_key=GROQ_API_KEY,
+        temperature=1.0  # Match compare_rag_vs_knn.py for consistency
     )
     
     evaluator_lm = dspy.LM(
-        "groq/llama-3.3-70b-versatile",  # Updated to 3.3 (3.1 was decommissioned)
+        "groq/openai/gpt-oss-120b",  
         model_type="chat",
-        api_key=GROQ_API_KEY
+        api_key=GROQ_API_KEY,
+        temperature=0.1  # Match compare_rag_vs_knn.py for consistency
     )
     
     # Run comparison

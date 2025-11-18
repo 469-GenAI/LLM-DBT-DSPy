@@ -205,17 +205,23 @@ class RAGPitchGenerator(PitchGenerator):
         stats = self.program.retriever.get_retriever_stats()
         print(f"  Vector store: {stats['total_documents']} pitches indexed")
     
-    def generate(self, input_data: dict):
+    def generate(self, input_data: dict, config: dict = None):
         """
         Generate a pitch with RAG context using the assigned generator model.
         
         Args:
             input_data: Dictionary containing structured pitch data
+            config: Optional config dict with rollout_id and temperature for cache control
             
         Returns:
             dspy.Prediction with pitch field and retrieval metadata
         """
-        with dspy.context(lm=self.lm):
+        # Build context parameters
+        context_params = {"lm": self.lm}
+        if config:
+            context_params.update(config)
+        
+        with dspy.context(**context_params):
             prediction = self.program(input=input_data)
         
         return prediction
