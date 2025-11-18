@@ -62,3 +62,6 @@ build/
 *.egg-info/
 
 *.csv
+
+# RAG comparison results
+rag_comparison_results/

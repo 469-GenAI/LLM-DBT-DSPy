@@ -3,11 +3,26 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 import dspy
-from utils import PitchResponse, InitialOffer
+import sys
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from utils.data_paths import get_po_samples
+
+# Import from agents.utils (need to check if it exists there)
+try:
+    from agents.utils import PitchResponse, InitialOffer
+except ImportError:
+    # Fallback: try relative import
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from utils import PitchResponse, InitialOffer
 
 
-def load_po_samples(data_path: str = "../../data/PO_samples.json") -> Dict[str, Any]:
+def load_po_samples(data_path: str = None) -> Dict[str, Any]:
     """Load and parse PO_samples.json file."""
+    if data_path is None:
+        data_path = str(get_po_samples())
+    
     try:
         with open(data_path, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -128,7 +143,7 @@ def transform_to_dspy_example(sample_data: Dict[str, Any]) -> dspy.Example:
         return None
 
 
-def create_training_set(data_path: str = "../../data/PO_samples.json") -> List[dspy.Example]:
+def create_training_set(data_path: str = None) -> List[dspy.Example]:
     """Generate complete list of training examples from PO_samples.json."""
     samples = load_po_samples(data_path)
     training_examples = []
